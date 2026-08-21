@@ -228,9 +228,16 @@
 
   /* ---------- Mobile: la tabla se convierte en tarjetas apiladas ---------- */
   @media (max-width: 760px) {
-    table.board { min-width: 0; border-spacing: 0; }
+    table.board {
+      display: block;
+      table-layout: auto;
+      min-width: 0;
+      max-width: 100%;
+      border-spacing: 0;
+    }
+    .board thead, .board tbody { display: block; }
     .board thead { display: none; }
-    .board tbody tr { display: block; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    .board tbody tr { display: block; width: 100% !important; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
     .board tbody tr.row--top1 { border-color: var(--gold); }
     .board tbody td { display: block; width: auto !important; border: none; border-bottom: 1px solid var(--border-soft); border-radius: 0 !important; text-align: left !important; }
     .board tbody td:last-child { border-bottom: none; }
@@ -246,6 +253,8 @@
     }
     td.col-player::before { display: none; }
     .elo-cell { justify-content: flex-start; }
+    .wr-cell { max-width: none; margin: 0; }
+    .wr-top { justify-content: space-between; }
   }
 </style>
 </head>
@@ -312,7 +321,7 @@
   </section>
 </main>
 
-<footer>Orlaman come velgas · Actualiza la página para refrescar</footer>
+<footer>Datos en vivo vía Riot Games API · Actualiza la página para refrescar</footer>
 
 <script>
 const TIER_COLOR = {
@@ -383,7 +392,7 @@ async function load() {
   const boardEl = document.getElementById('board');
   const rowsEl = document.getElementById('rows');
   try {
-    const res = await fetch('https://perusqc-production.up.railway.app/api/leaderboard');
+    const res = await fetch('/api/leaderboard');
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error desconocido');
 
