@@ -410,10 +410,10 @@
       <div class="wheel-wrap">
         <div class="wheel-pointer"></div>
         <div class="wheel" id="wheel">
-          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(45deg);">Autofill</span>
-          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(135deg);">Sin flash</span>
-          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(225deg);">Campeón aleatorio</span>
-          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(315deg);">Sin comprar botas</span>
+          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(315deg);">Autofill</span>
+          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(45deg);">Sin flash</span>
+          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(135deg);">Campeón aleatorio</span>
+          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(225deg);">Sin comprar botas</span>
         </div>
         <div class="wheel-hub">SPQC</div>
       </div>
@@ -609,10 +609,7 @@ function spin() {
   const segmentSize = 360 / PRIZES.length;
   const jitter = (Math.random() * (segmentSize - 20)) - (segmentSize - 20) / 2; // margen de 10° con cada borde
   const desiredAngle = prizeIndex * segmentSize + segmentSize / 2 + jitter;
-  const pointerAngle = 270;
-
-  const targetMod =
-  ((pointerAngle - desiredAngle) % 360 + 360) % 360;
+  const targetMod = ((360 - desiredAngle) % 360 + 360) % 360;
 
   const extraSpins = 6;
   const base = Math.ceil((cumulativeRotation + 1) / 360) * 360;
