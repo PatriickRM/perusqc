@@ -60,7 +60,20 @@ const ACCOUNTS = [
     role: 'ADC',
     avatar: 'https://i.blogs.es/5eeb4a/burns/840_560.jpeg'
   },
-
+  {
+    displayName: 'Junior',
+    gameName: 'Ey Jude',
+    tagLine: '1959',
+    role: 'MID',
+    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSFwobB5dPWnbhQtJ5iIQIvPjLV35ZOrq4ZzAo7aCDR6g&s=10'
+  },
+  {
+    displayName: 'Defcon',
+    gameName: 'Dragonヤギ',
+    tagLine: 'デフコン',
+    role: 'JG',
+    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTkWq3EDmA1oARG8TPDR2ChJ6VBEewrRxa_vQxoYYziGw&s=10'
+  },
 ];
 
 const TIER_VALUE = {
