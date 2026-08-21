@@ -47,11 +47,11 @@ const ACCOUNTS = [
   },
 
   {
-    displayName: 'Umbra',
-    gameName: 'Diegoomee',
-    tagLine: '117',
+    displayName: 'BasuraMan',
+    gameName: 'LTFelipe',
+    tagLine: 'LAN',
     role: 'TOP',
-    avatar: 'https://static.wikia.nocookie.net/disney/images/4/4e/Oscar-Pecezuelos.png/revision/latest/smart/width/250/height/250?cb=20110330181428&path-prefix=es'
+    avatar: 'https://static.wikia.nocookie.net/shrek/images/a/a8/Burro.jpg/revision/latest?cb=20160113210253&path-prefix=es'
   },
   {
     displayName: 'karalej',
