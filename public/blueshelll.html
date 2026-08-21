@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blue Shell — SPQC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="shared.css">
+<style>
+  :root {
+    --bs-flash: #5cc9ff;
+    --bs-flash-dim: rgba(92, 201, 255, 0.14);
+  }
+
+  .page-head { text-align: center; padding: 44px 20px 8px; }
+  .page-head__eyebrow {
+    font-family: var(--mono); font-size: 0.7rem; letter-spacing: 3px;
+    color: var(--text-dim); display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .page-head__main {
+    font-family: var(--display); font-size: clamp(2.2rem, 8vw, 3rem); letter-spacing: 2px;
+    color: var(--accent); text-shadow: 0 0 34px rgba(255, 59, 78, 0.32); margin: 6px 0 2px;
+  }
+  .page-head__sub { color: var(--text-dim); font-size: 0.9rem; }
+
+  /* ---------- Paso 1: elegir jugador ---------- */
+  .step { padding: 36px 0; }
+  .step + .step { border-top: 1px solid var(--border-soft); }
+  .step__label {
+    font-family: var(--mono); font-size: 0.66rem; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-faint); margin-bottom: 16px; display: flex; align-items: center; gap: 10px;
+  }
+  .step__label .num {
+    width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--accent); color: var(--accent);
+    display: inline-flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 700;
+  }
+
+  .player-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
+    gap: 12px;
+  }
+  .player-pick {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 10px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s, transform 0.15s;
+    position: relative;
+  }
+  .player-pick:hover { background: var(--bg-card-hover); transform: translateY(-2px); }
+  .player-pick.is-selected {
+    border-color: var(--accent);
+    background: var(--accent-dim);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 22px rgba(255, 59, 78, 0.22);
+  }
+  .player-pick__avatar {
+    width: 56px; height: 56px; border-radius: 12px; object-fit: cover;
+    border: 1px solid var(--border); background: #201415;
+  }
+  .player-pick__name { font-weight: 700; font-size: 0.86rem; text-align: center; line-height: 1.2; }
+  .player-pick__check {
+    position: absolute; top: 8px; right: 8px;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 900;
+    opacity: 0; transform: scale(0.5);
+    transition: opacity 0.15s, transform 0.15s;
+  }
+  .player-pick.is-selected .player-pick__check { opacity: 1; transform: scale(1); }
+
+  /* ---------- Paso 2: ruleta ---------- */
+  .wheel-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 26px;
+    padding-top: 6px;
+  }
+  .wheel-target {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    text-align: center;
+  }
+  .wheel-target b { color: var(--text); font-weight: 700; }
+
+  .wheel-wrap {
+    position: relative;
+    width: min(320px, 78vw);
+    height: min(320px, 78vw);
+    filter: drop-shadow(0 14px 34px rgba(0, 0, 0, 0.55));
+  }
+  .wheel-pointer {
+    position: absolute;
+    top: -6px; left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 15px solid transparent;
+    border-right: 15px solid transparent;
+    border-top: 26px solid var(--text);
+    z-index: 3;
+    filter: drop-shadow(0 0 10px rgba(246, 239, 238, 0.5));
+  }
+  .wheel-hub {
+    position: absolute; top: 50%; left: 50%;
+    width: 58px; height: 58px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: var(--bg-plate);
+    border: 3px solid var(--text);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2;
+    font-family: var(--display);
+    font-size: 1rem;
+    letter-spacing: 1px;
+    color: var(--text);
+  }
+  .wheel {
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    border: 6px solid var(--bg-plate);
+    box-shadow: inset 0 0 0 1px var(--border), 0 0 0 3px var(--border-soft);
+    background: conic-gradient(
+      var(--accent) 0deg 90deg,
+      var(--bs-flash) 90deg 180deg,
+      var(--gold) 180deg 270deg,
+      var(--accent-2) 270deg 360deg
+    );
+    position: relative;
+    transform: rotate(0deg);
+    transition: transform 4.4s cubic-bezier(0.13, 0.66, 0.1, 1);
+  }
+  .wheel__seg-label {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 46%;
+    transform-origin: left center;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 0.66rem;
+    letter-spacing: 0.5px;
+    text-align: right;
+    padding-right: 14px;
+    color: #0a0708;
+    text-transform: uppercase;
+    line-height: 1.15;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px 18px;
+  }
+  .legend__item {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 0.72rem; color: var(--text-dim);
+  }
+  .legend__dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+
+  .spin-btn {
+    font-family: var(--display);
+    font-size: 1.15rem;
+    letter-spacing: 2px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border: none;
+    border-radius: 999px;
+    padding: 14px 42px;
+    cursor: pointer;
+    box-shadow: 0 8px 26px rgba(255, 59, 78, 0.32);
+    transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+  }
+  .spin-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.08); }
+  .spin-btn:active:not(:disabled) { transform: translateY(0); }
+  .spin-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .wheel--spinning { animation: wheelGlow 0.6s ease-in-out infinite alternate; }
+  @keyframes wheelGlow {
+    from { box-shadow: inset 0 0 0 1px var(--border), 0 0 0 3px var(--border-soft); }
+    to   { box-shadow: inset 0 0 0 1px var(--border), 0 0 0 3px var(--accent); }
+  }
+
+  /* ---------- Resultado ---------- */
+  .result {
+    display: none;
+    text-align: center;
+    padding: 30px 24px 34px;
+    border-radius: 18px;
+    background: var(--bg-card);
+    border: 1px solid var(--result-c, var(--accent));
+    box-shadow: 0 0 40px var(--result-glow, rgba(255, 59, 78, 0.28));
+    position: relative;
+    overflow: hidden;
+    animation: resultPop 0.5s cubic-bezier(0.3, 1.6, 0.4, 1) both;
+  }
+  @keyframes resultPop {
+    from { opacity: 0; transform: scale(0.85) translateY(10px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+  }
+  .result__eyebrow {
+    font-family: var(--mono); font-size: 0.68rem; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .result__player {
+    font-family: var(--display); font-size: 1.5rem; letter-spacing: 1px; color: var(--text); margin-top: 6px;
+  }
+  .result__punishment {
+    font-family: var(--display);
+    font-size: clamp(2.1rem, 8vw, 3rem);
+    letter-spacing: 2px;
+    color: var(--result-c, var(--accent));
+    text-shadow: 0 0 30px var(--result-glow, rgba(255, 59, 78, 0.4));
+    margin: 10px 0 4px;
+    animation: resultShake 0.5s ease 0.15s both;
+  }
+  @keyframes resultShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-6px) rotate(-1deg); }
+    40% { transform: translateX(6px) rotate(1deg); }
+    60% { transform: translateX(-3px); }
+    80% { transform: translateX(3px); }
+  }
+  .result__actions { margin-top: 22px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .ghost-btn {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .ghost-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .confetti-piece {
+    position: absolute;
+    top: -12px;
+    width: 7px; height: 12px;
+    opacity: 0.9;
+    animation: confettiFall linear forwards;
+    z-index: 1;
+  }
+  @keyframes confettiFall {
+    to { transform: translateY(320px) rotate(540deg); opacity: 0; }
+  }
+
+  /* ---------- Historial ---------- */
+  .history { padding-top: 10px; }
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+  .history-empty { font-family: var(--mono); font-size: 0.8rem; color: var(--text-faint); }
+  .history-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.86rem;
+    animation: resultPop 0.35s ease both;
+  }
+  .history-row__dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+  .history-row__player { font-weight: 700; }
+  .history-row__arrow { color: var(--text-faint); }
+  .history-row__punishment { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.5px; }
+  .history-row__time { margin-left: auto; font-family: var(--mono); font-size: 0.68rem; color: var(--text-faint); }
+
+  #status-msg { text-align: center; color: var(--text-dim); padding: 24px; font-family: var(--mono); font-size: 0.85rem; }
+
+  @media (max-width: 560px) {
+    .player-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav__inner">
+    <a class="topnav__brand" href="index.html">SPQC</a>
+    <div class="topnav__links">
+      <a href="index.html">Tabla</a>
+      <a href="live.html">En vivo</a>
+      <a href="blueshell.html" class="active">Blue Shell</a>
+      <a href="rules.html">Reglas</a>
+    </div>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="page-head__eyebrow"><span class="live-dot"></span> Castigo aleatorio</div>
+  <div class="page-head__main">BLUE SHELL 🐢</div>
+  <div class="page-head__sub">Elige a la víctima y deja que la ruleta decida su destino</div>
+</header>
+
+<main class="wrap" style="padding-top: 12px;">
+
+  <section class="step" id="step-players">
+    <div class="step__label"><span class="num">1</span> Elige un jugador</div>
+    <div id="status-msg">Cargando jugadores...</div>
+    <div class="player-grid" id="player-grid" style="display:none"></div>
+  </section>
+
+  <section class="step" id="step-wheel">
+    <div class="step__label"><span class="num">2</span> Gira la ruleta</div>
+
+    <div class="wheel-stage">
+      <div class="wheel-target" id="wheel-target">Selecciona un jugador arriba para empezar</div>
+
+      <div class="wheel-wrap">
+        <div class="wheel-pointer"></div>
+        <div class="wheel" id="wheel">
+          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(45deg);">Autofill</span>
+          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(135deg);">Sin flash</span>
+          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(225deg);">Campeón aleatorio</span>
+          <span class="wheel__seg-label" style="transform: translateY(-50%) rotate(315deg);">Sin comprar botas</span>
+        </div>
+        <div class="wheel-hub">SPQC</div>
+      </div>
+
+      <div class="legend">
+        <div class="legend__item"><span class="legend__dot" style="background:var(--accent)"></span> Autofill</div>
+        <div class="legend__item"><span class="legend__dot" style="background:var(--bs-flash)"></span> Sin flash</div>
+        <div class="legend__item"><span class="legend__dot" style="background:var(--gold)"></span> Campeón aleatorio</div>
+        <div class="legend__item"><span class="legend__dot" style="background:var(--accent-2)"></span> Sin comprar botas</div>
+      </div>
+
+      <button class="spin-btn" id="spin-btn" disabled>GIRAR RULETA</button>
+
+      <div class="result" id="result">
+        <div class="result__eyebrow">El castigo cayó sobre</div>
+        <div class="result__player" id="result-player">—</div>
+        <div class="result__punishment" id="result-punishment">—</div>
+        <div class="result__actions">
+          <button class="ghost-btn" id="spin-again-btn">Girar de nuevo</button>
+          <button class="ghost-btn" id="change-player-btn">Elegir otro jugador</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="step history" id="step-history">
+    <div class="step__label"><span class="num">#</span> Historial de esta sesión</div>
+    <div class="history-list" id="history-list">
+      <div class="history-empty">Todavía no se ha girado la ruleta.</div>
+    </div>
+  </section>
+
+</main>
+
+<footer>SoloPeruQChallenge · Blue Shell no es opcional</footer>
+
+<script>
+const PRIZES = [
+  { label: 'AUTOFILL',            short: 'Autofill',            color: 'var(--accent)',   glow: 'rgba(255, 59, 78, 0.4)'  },
+  { label: 'SIN FLASH',           short: 'Sin flash',           color: 'var(--bs-flash)', glow: 'rgba(92, 201, 255, 0.4)' },
+  { label: 'CAMPEÓN ALEATORIO',   short: 'Campeón aleatorio',   color: 'var(--gold)',     glow: 'rgba(242, 193, 78, 0.4)' },
+  { label: 'SIN COMPRAR BOTAS',   short: 'Sin comprar botas',   color: 'var(--accent-2)', glow: 'rgba(255, 122, 69, 0.4)' },
+];
+
+let players = [];
+let selectedPlayer = null;
+let cumulativeRotation = 0;
+let spinning = false;
+let history = [];
+
+const statusMsg   = document.getElementById('status-msg');
+const grid        = document.getElementById('player-grid');
+const wheelTarget = document.getElementById('wheel-target');
+const wheelEl     = document.getElementById('wheel');
+const spinBtn     = document.getElementById('spin-btn');
+const resultEl    = document.getElementById('result');
+const resultPlayerEl     = document.getElementById('result-player');
+const resultPunishmentEl = document.getElementById('result-punishment');
+const historyList = document.getElementById('history-list');
+
+async function loadPlayers() {
+  try {
+    const res = await fetch('https://perusqc-production.up.railway.app/api/leaderboard');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error desconocido');
+
+    players = data.leaderboard.map(p => ({ displayName: p.displayName, avatar: p.avatar }));
+    statusMsg.style.display = 'none';
+    grid.style.display = '';
+    grid.innerHTML = players.map((p, i) => `
+      <div class="player-pick" data-index="${i}">
+        <div class="player-pick__check">✓</div>
+        <img class="player-pick__avatar" src="${p.avatar || ''}" onerror="this.style.visibility='hidden'">
+        <div class="player-pick__name">${p.displayName}</div>
+      </div>
+    `).join('');
+
+    grid.querySelectorAll('.player-pick').forEach(el => {
+      el.addEventListener('click', () => selectPlayer(Number(el.dataset.index)));
+    });
+  } catch (err) {
+    statusMsg.textContent = 'Error cargando jugadores: ' + err.message;
+  }
+}
+
+function selectPlayer(index) {
+  if (spinning) return;
+  selectedPlayer = players[index];
+  grid.querySelectorAll('.player-pick').forEach((el, i) => {
+    el.classList.toggle('is-selected', i === index);
+  });
+  wheelTarget.innerHTML = `Girando la ruleta para <b>${selectedPlayer.displayName}</b>`;
+  spinBtn.disabled = false;
+  hideResult();
+}
+
+function hideResult() {
+  resultEl.style.display = 'none';
+}
+
+function spawnConfetti(color) {
+  const colors = [color, '#fff', 'var(--gold)'];
+  for (let i = 0; i < 26; i++) {
+    const piece = document.createElement('span');
+    piece.className = 'confetti-piece';
+    piece.style.left = (Math.random() * 100) + '%';
+    piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+    piece.style.animationDuration = (0.9 + Math.random() * 0.8) + 's';
+    piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+    resultEl.appendChild(piece);
+    piece.addEventListener('animationend', () => piece.remove());
+  }
+}
+
+function addHistoryEntry(playerName, prize) {
+  history.unshift({ playerName, prize, time: new Date() });
+  history = history.slice(0, 12);
+  renderHistory();
+}
+
+function renderHistory() {
+  if (!history.length) {
+    historyList.innerHTML = '<div class="history-empty">Todavía no se ha girado la ruleta.</div>';
+    return;
+  }
+  historyList.innerHTML = history.map(h => `
+    <div class="history-row">
+      <span class="history-row__dot" style="background:${h.prize.color}"></span>
+      <span class="history-row__player">${h.playerName}</span>
+      <span class="history-row__arrow">→</span>
+      <span class="history-row__punishment" style="color:${h.prize.color}">${h.prize.label}</span>
+      <span class="history-row__time">${h.time.getHours().toString().padStart(2,'0')}:${h.time.getMinutes().toString().padStart(2,'0')}</span>
+    </div>
+  `).join('');
+}
+
+function spin() {
+  if (spinning || !selectedPlayer) return;
+  spinning = true;
+  spinBtn.disabled = true;
+  hideResult();
+  wheelEl.classList.add('wheel--spinning');
+
+  const prizeIndex = Math.floor(Math.random() * PRIZES.length);
+  const segmentSize = 360 / PRIZES.length;
+  const jitter = (Math.random() * (segmentSize - 20)) - (segmentSize - 20) / 2; // margen de 10° con cada borde
+  const desiredAngle = prizeIndex * segmentSize + segmentSize / 2 + jitter;
+  const targetMod = ((360 - desiredAngle) % 360 + 360) % 360;
+
+  const extraSpins = 6;
+  const base = Math.ceil((cumulativeRotation + 1) / 360) * 360;
+  let newRotation = base + extraSpins * 360 + targetMod;
+  if (newRotation <= cumulativeRotation) newRotation += 360;
+  cumulativeRotation = newRotation;
+
+  wheelEl.style.transform = `rotate(${cumulativeRotation}deg)`;
+
+  const onDone = () => {
+    wheelEl.removeEventListener('transitionend', onDone);
+    wheelEl.classList.remove('wheel--spinning');
+    revealResult(PRIZES[prizeIndex]);
+    spinning = false;
+    spinBtn.disabled = false;
+  };
+  wheelEl.addEventListener('transitionend', onDone);
+}
+
+function revealResult(prize) {
+  resultPlayerEl.textContent = selectedPlayer.displayName;
+  resultPunishmentEl.textContent = prize.label;
+  resultEl.style.setProperty('--result-c', prize.color);
+  resultEl.style.setProperty('--result-glow', prize.glow);
+  resultEl.style.display = 'block';
+  // reinicia la animación de aparición
+  resultEl.style.animation = 'none';
+  void resultEl.offsetWidth;
+  resultEl.style.animation = '';
+  spawnConfetti(prize.color);
+  addHistoryEntry(selectedPlayer.displayName, prize);
+}
+
+spinBtn.addEventListener('click', spin);
+
+document.getElementById('spin-again-btn').addEventListener('click', () => {
+  hideResult();
+  spin();
+});
+
+document.getElementById('change-player-btn').addEventListener('click', () => {
+  hideResult();
+  selectedPlayer = null;
+  spinBtn.disabled = true;
+  wheelTarget.textContent = 'Selecciona un jugador arriba para empezar';
+  grid.querySelectorAll('.player-pick').forEach(el => el.classList.remove('is-selected'));
+  document.getElementById('step-players').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+loadPlayers();
+</script>
+</body>
+</html>
