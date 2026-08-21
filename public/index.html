@@ -383,7 +383,7 @@ async function load() {
   const boardEl = document.getElementById('board');
   const rowsEl = document.getElementById('rows');
   try {
-    const res = await fetch('/api/leaderboard');
+    const res = await fetch('https://perusqc-production.up.railway.app/api/leaderboard');
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error desconocido');
 

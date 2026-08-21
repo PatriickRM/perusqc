@@ -6,9 +6,11 @@
 
 const express = require('express');
 const path = require('path');
+const cors = require('cors');
 
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(cors());
 
 const RIOT_API_KEY = process.env.RIOT_API_KEY;
 if (!RIOT_API_KEY) {

@@ -224,7 +224,7 @@ async function render(matches) {
 
 async function load() {
   try {
-    const res = await fetch('/api/live');
+    const res = await fetch('https://perusqc-production.up.railway.app/api/live');
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error desconocido');
     render(data.matches);
