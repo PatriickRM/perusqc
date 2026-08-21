@@ -244,6 +244,97 @@
   }
   .ghost-btn:hover { color: var(--text); border-color: var(--text-dim); }
 
+  /* ---------- Sorteo de campeón (cuando toca Campeón Aleatorio) ---------- */
+  .champ-roll {
+    display: none;
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px dashed var(--border);
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .champ-roll__label {
+    font-family: var(--mono); font-size: 0.66rem; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-dim);
+  }
+  .champ-roll__window {
+    position: relative;
+    width: min(390px, 88vw);
+    height: 92px;
+    overflow: hidden;
+    border-radius: 14px;
+    background: var(--bg-plate);
+    border: 1px solid var(--border);
+    -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 16%, #000 84%, transparent 100%);
+    mask-image: linear-gradient(90deg, transparent 0%, #000 16%, #000 84%, transparent 100%);
+  }
+  .champ-roll__marker {
+    position: absolute; top: 0; bottom: 0; left: 50%;
+    width: 78px;
+    transform: translateX(-50%);
+    border-left: 2px solid var(--gold);
+    border-right: 2px solid var(--gold);
+    box-shadow: 0 0 16px rgba(242, 193, 78, 0.4), inset 0 0 16px rgba(242, 193, 78, 0.08);
+    z-index: 2;
+    pointer-events: none;
+  }
+  .champ-roll__strip {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    will-change: transform;
+  }
+  .champ-roll__item {
+    width: 78px; height: 100%;
+    flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 5px;
+  }
+  .champ-roll__item img {
+    width: 50px; height: 50px; border-radius: 10px;
+    border: 1px solid var(--border); object-fit: cover; background: #201415;
+  }
+  .champ-roll__item span {
+    font-family: var(--mono); font-size: 0.56rem; color: var(--text-dim);
+    max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .champ-roll--spinning .champ-roll__window {
+    box-shadow: 0 0 0 1px var(--gold), 0 0 22px rgba(242, 193, 78, 0.3);
+  }
+
+  .roll-champ-btn {
+    font-family: var(--display);
+    font-size: 0.98rem;
+    letter-spacing: 1.5px;
+    color: #0a0708;
+    background: linear-gradient(135deg, var(--gold), #ffe4a3);
+    border: none;
+    border-radius: 999px;
+    padding: 11px 30px;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(242, 193, 78, 0.3);
+    transition: transform 0.15s, filter 0.15s;
+  }
+  .roll-champ-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.06); }
+  .roll-champ-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .champ-roll__final {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    font-family: var(--display);
+    font-size: 1.35rem;
+    letter-spacing: 1px;
+    color: var(--gold);
+    animation: resultPop 0.4s cubic-bezier(0.3, 1.6, 0.4, 1) both;
+  }
+  .champ-roll__final img {
+    width: 46px; height: 46px; border-radius: 10px;
+    border: 2px solid var(--gold);
+    box-shadow: 0 0 16px rgba(242, 193, 78, 0.45);
+  }
+
   .confetti-piece {
     position: absolute;
     top: -12px;
@@ -340,6 +431,16 @@
         <div class="result__eyebrow">El castigo cayó sobre</div>
         <div class="result__player" id="result-player">—</div>
         <div class="result__punishment" id="result-punishment">—</div>
+        <div class="champ-roll" id="champ-roll">
+          <div class="champ-roll__label">¿Qué campeón le toca?</div>
+          <div class="champ-roll__window">
+            <div class="champ-roll__marker"></div>
+            <div class="champ-roll__strip" id="champ-strip"></div>
+          </div>
+          <button class="roll-champ-btn" id="roll-champ-btn">SORTEAR CAMPEÓN</button>
+          <div class="champ-roll__final" id="champ-roll-final"></div>
+        </div>
+
         <div class="result__actions">
           <button class="ghost-btn" id="spin-again-btn">Girar de nuevo</button>
           <button class="ghost-btn" id="change-player-btn">Elegir otro jugador</button>
@@ -361,10 +462,10 @@
 
 <script>
 const PRIZES = [
-  { label: 'AUTOFILL',            short: 'Autofill',            color: 'var(--accent)',   glow: 'rgba(255, 59, 78, 0.4)'  },
-  { label: 'SIN FLASH',           short: 'Sin flash',           color: 'var(--bs-flash)', glow: 'rgba(92, 201, 255, 0.4)' },
-  { label: 'CAMPEÓN ALEATORIO',   short: 'Campeón aleatorio',   color: 'var(--gold)',     glow: 'rgba(242, 193, 78, 0.4)' },
-  { label: 'SIN COMPRAR BOTAS',   short: 'Sin comprar botas',   color: 'var(--accent-2)', glow: 'rgba(255, 122, 69, 0.4)' },
+  { key: 'AUTOFILL',    label: 'AUTOFILL',            short: 'Autofill',            color: 'var(--accent)',   glow: 'rgba(255, 59, 78, 0.4)'  },
+  { key: 'SIN_FLASH',   label: 'SIN FLASH',           short: 'Sin flash',           color: 'var(--bs-flash)', glow: 'rgba(92, 201, 255, 0.4)' },
+  { key: 'RANDOM_CHAMP',label: 'CAMPEÓN ALEATORIO',   short: 'Campeón aleatorio',   color: 'var(--gold)',     glow: 'rgba(242, 193, 78, 0.4)' },
+  { key: 'SIN_BOTAS',   label: 'SIN COMPRAR BOTAS',   color: 'var(--accent-2)', short: 'Sin comprar botas', glow: 'rgba(255, 122, 69, 0.4)' },
 ];
 
 let players = [];
@@ -382,6 +483,33 @@ const resultEl    = document.getElementById('result');
 const resultPlayerEl     = document.getElementById('result-player');
 const resultPunishmentEl = document.getElementById('result-punishment');
 const historyList = document.getElementById('history-list');
+const champRollEl    = document.getElementById('champ-roll');
+const champStripEl   = document.getElementById('champ-strip');
+const rollChampBtn   = document.getElementById('roll-champ-btn');
+const champFinalEl   = document.getElementById('champ-roll-final');
+
+let championList = null;
+
+async function getChampionList() {
+  if (championList) return championList;
+  try {
+    const versions = await (await fetch('https://ddragon.leagueoflegends.com/api/versions.json')).json();
+    const version = versions[0];
+    const data = await (await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/es_MX/champion.json`)).json();
+    championList = Object.values(data.data).map(c => ({
+      id: c.id,
+      name: c.name,
+      icon: `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${c.id}.png`,
+    }));
+  } catch (err) {
+    championList = [];
+  }
+  return championList;
+}
+
+function champItemHtml(c) {
+  return `<div class="champ-roll__item"><img src="${c.icon}" onerror="this.style.visibility='hidden'"><span>${c.name}</span></div>`;
+}
 
 async function loadPlayers() {
   try {
@@ -421,6 +549,15 @@ function selectPlayer(index) {
 
 function hideResult() {
   resultEl.style.display = 'none';
+  champRollEl.style.display = 'none';
+  champRollEl.classList.remove('champ-roll--spinning');
+  champStripEl.style.transition = 'none';
+  champStripEl.style.transform = 'translateX(0px)';
+  champStripEl.innerHTML = '';
+  champFinalEl.style.display = 'none';
+  champFinalEl.innerHTML = '';
+  rollChampBtn.textContent = 'SORTEAR CAMPEÓN';
+  rollChampBtn.disabled = false;
 }
 
 function spawnConfetti(color) {
@@ -438,9 +575,11 @@ function spawnConfetti(color) {
 }
 
 function addHistoryEntry(playerName, prize) {
-  history.unshift({ playerName, prize, time: new Date() });
+  const entry = { playerName, prize, champion: null, time: new Date() };
+  history.unshift(entry);
   history = history.slice(0, 12);
   renderHistory();
+  return entry;
 }
 
 function renderHistory() {
@@ -453,7 +592,7 @@ function renderHistory() {
       <span class="history-row__dot" style="background:${h.prize.color}"></span>
       <span class="history-row__player">${h.playerName}</span>
       <span class="history-row__arrow">→</span>
-      <span class="history-row__punishment" style="color:${h.prize.color}">${h.prize.label}</span>
+      <span class="history-row__punishment" style="color:${h.prize.color}">${h.prize.label}${h.champion ? ` <span style="color:var(--text-dim)">(${h.champion})</span>` : ''}</span>
       <span class="history-row__time">${h.time.getHours().toString().padStart(2,'0')}:${h.time.getMinutes().toString().padStart(2,'0')}</span>
     </div>
   `).join('');
@@ -470,7 +609,10 @@ function spin() {
   const segmentSize = 360 / PRIZES.length;
   const jitter = (Math.random() * (segmentSize - 20)) - (segmentSize - 20) / 2; // margen de 10° con cada borde
   const desiredAngle = prizeIndex * segmentSize + segmentSize / 2 + jitter;
-  const targetMod = ((360 - desiredAngle) % 360 + 360) % 360;
+  const pointerAngle = 270;
+
+  const targetMod =
+  ((pointerAngle - desiredAngle) % 360 + 360) % 360;
 
   const extraSpins = 6;
   const base = Math.ceil((cumulativeRotation + 1) / 360) * 360;
@@ -501,7 +643,76 @@ function revealResult(prize) {
   void resultEl.offsetWidth;
   resultEl.style.animation = '';
   spawnConfetti(prize.color);
-  addHistoryEntry(selectedPlayer.displayName, prize);
+  const entry = addHistoryEntry(selectedPlayer.displayName, prize);
+
+  // Si tocó campeón aleatorio, prepara el girador de campeones (segunda vuelta)
+  if (prize.key === 'RANDOM_CHAMP') {
+    champRollEl.style.display = 'flex';
+    champFinalEl.style.display = 'none';
+    champFinalEl.innerHTML = '';
+    champStripEl.style.transition = 'none';
+    champStripEl.style.transform = 'translateX(0px)';
+    champStripEl.innerHTML = '';
+    rollChampBtn.style.display = '';
+    rollChampBtn.disabled = false;
+    rollChampBtn.onclick = () => rollChampion(entry);
+  } else {
+    champRollEl.style.display = 'none';
+  }
+}
+
+async function rollChampion(historyEntry) {
+  rollChampBtn.disabled = true;
+  champRollEl.classList.add('champ-roll--spinning');
+  champFinalEl.style.display = 'none';
+
+  const champs = await getChampionList();
+  if (!champs.length) {
+    champFinalEl.innerHTML = 'No se pudo cargar la lista de campeones.';
+    champFinalEl.style.display = 'flex';
+    rollChampBtn.disabled = false;
+    champRollEl.classList.remove('champ-roll--spinning');
+    return;
+  }
+
+  const winner = champs[Math.floor(Math.random() * champs.length)];
+
+  // arma la tira: puros campeones al azar, con el ganador ubicado
+  // a un par de casillas antes del final para que el girador "recorra" la lista completa.
+  const itemWidth = 78;
+  const stripLength = 46;
+  const targetPos = stripLength - 5;
+  const items = [];
+  for (let i = 0; i < stripLength; i++) {
+    items.push(i === targetPos ? winner : champs[Math.floor(Math.random() * champs.length)]);
+  }
+
+  champStripEl.style.transition = 'none';
+  champStripEl.style.transform = 'translateX(0px)';
+  champStripEl.innerHTML = items.map(champItemHtml).join('');
+  void champStripEl.offsetWidth; // fuerza reflow antes de animar
+
+  const windowWidth = champRollEl.querySelector('.champ-roll__window').clientWidth;
+  const finalX = (windowWidth / 2) - (targetPos * itemWidth + itemWidth / 2);
+
+  requestAnimationFrame(() => {
+    champStripEl.style.transition = 'transform 3.8s cubic-bezier(0.1, 0.6, 0.15, 1)';
+    champStripEl.style.transform = `translateX(${finalX}px)`;
+  });
+
+  const onDone = () => {
+    champStripEl.removeEventListener('transitionend', onDone);
+    champRollEl.classList.remove('champ-roll--spinning');
+    champFinalEl.innerHTML = `<img src="${winner.icon}" onerror="this.style.visibility='hidden'"> Le tocó: ${winner.name}`;
+    champFinalEl.style.display = 'flex';
+    rollChampBtn.textContent = 'SORTEAR OTRO';
+    rollChampBtn.disabled = false;
+    if (historyEntry) {
+      historyEntry.champion = winner.name;
+      renderHistory();
+    }
+  };
+  champStripEl.addEventListener('transitionend', onDone);
 }
 
 spinBtn.addEventListener('click', spin);
