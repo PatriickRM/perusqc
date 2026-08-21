@@ -71,7 +71,7 @@ const ACCOUNTS = [
     displayName: 'Defcon',
     gameName: 'Dragonヤギ',
     tagLine: 'デフコン',
-    role: 'JG',
+    role: 'JUNGLA',
     avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTkWq3EDmA1oARG8TPDR2ChJ6VBEewrRxa_vQxoYYziGw&s=10'
   },
 ];
