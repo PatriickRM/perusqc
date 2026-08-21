@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SPQC — SoloPeruQChallenge</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="shared.css">
+<style>
+  /* ---------- Leaderboard: tabla real, columnas alineadas ---------- */
+  /* Rompe el max-width del .wrap para que la tabla ocupe todo el ancho de la ventana.
+     overflow-x:hidden en html/body evita la barra de scroll horizontal fantasma que
+     este truco suele dejar pegada abajo. */
+  html, body { overflow-x: hidden; }
+
+  .block--board {
+    width: 100vw;
+    position: relative;
+    left: 50%;
+    right: 50%;
+    margin-left: -50vw;
+    margin-right: -50vw;
+    padding: 44px clamp(20px, 4vw, 56px) 44px;
+  }
+
+  .board-wrap { overflow: hidden; }
+
+  table.board {
+    width: 100%;
+    max-width: 1300px;
+    margin: 0 auto;
+    table-layout: fixed;
+    border-collapse: separate;
+    border-spacing: 0 12px;
+  }
+
+  .board thead th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    padding: 0 18px 10px;
+  }
+  .board thead th.col-role,
+  .board thead th.col-elo,
+  .board thead th.col-stats { text-align: center; }
+  .board thead th.col-wr { text-align: center; }
+
+  .board tbody td {
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 18px;
+    vertical-align: middle;
+  }
+  .board tbody td:first-child {
+    border-left: 1px solid var(--border);
+    border-top-left-radius: 14px;
+    border-bottom-left-radius: 14px;
+  }
+  .board tbody td:last-child {
+    border-right: 1px solid var(--border);
+    border-top-right-radius: 14px;
+    border-bottom-right-radius: 14px;
+  }
+  .board tbody tr:hover td { background: var(--bg-card-hover); }
+  .board tbody tr.row--top1 td { border-color: var(--gold); }
+  .board tbody tr.row--top1 td:first-child, .board tbody tr.row--top1 td:last-child { box-shadow: 0 0 0 1px rgba(242,193,78,0.12); }
+
+  td.col-rank { width: 46px; text-align: center; }
+  .rank-num {
+    font-family: var(--display);
+    font-size: 1.7rem;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+  .row--top1 .rank-num { color: var(--gold); }
+
+  /* jugador */
+  td.col-player { width: 26%; min-width: 190px; }
+  .player-cell { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .player-cell__avatar {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    object-fit: cover;
+    flex-shrink: 0;
+    background: #201415;
+  }
+  .player-cell__text { min-width: 0; }
+  .player-name {
+    font-weight: 700;
+    font-size: 0.98rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .player-account {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+  }
+  /* rol — color propio por linea */
+  td.col-role { width: 92px; text-align: center; }
+  .role-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 7px;
+    padding: 6px 10px 6px 8px;
+    white-space: nowrap;
+    border: 1px solid var(--role-c, var(--border));
+    background: var(--role-bg, transparent);
+    color: var(--role-c, var(--text-faint));
+  }
+  .role-chip--empty { color: var(--text-faint); border-color: var(--border); }
+  .role-chip__icon {
+    width: 13px; height: 13px;
+    flex-shrink: 0;
+    background-color: var(--role-c, var(--text-faint));
+    -webkit-mask-image: var(--icon-url);
+    mask-image: var(--icon-url);
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-position: center;
+  }
+
+  /* elo — glow segun tier */
+  td.col-elo { width: 128px; }
+  .elo-cell { display: flex; align-items: center; gap: 10px; justify-content: center; }
+  .elo-cell__emblem { width: 40px; height: 40px; flex-shrink: 0; }
+  .elo-cell__text { min-width: 0; text-align: left; }
+  .tier-label { font-family: var(--display); font-size: 0.92rem; letter-spacing: 0.5px; white-space: nowrap; line-height: 1.1; }
+  .lp-label {
+    font-family: var(--mono);
+    font-size: 0.64rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+    margin-top: 2px;
+    display: inline-block;
+    background: var(--bg-plate);
+    border: 1px solid var(--border-soft);
+    padding: 1px 6px;
+    border-radius: 5px;
+  }
+
+  /* winrate — compacta, tipo pill, centrada entre Elo y Stats */
+  /* Verde/rojo mas apagados que los de shared.css (menos "lima", mas profundos) solo para esta tabla */
+  td.col-wr {
+    --win: #2e9e6b;
+    --loss: #c2464c;
+    width: auto;
+    min-width: 190px;
+    text-align: center;
+  }
+  .wr-cell { width: 100%; max-width: 230px; margin: 0 auto; }
+  .wr-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 7px;
+  }
+  .wr-pct {
+    font-family: var(--body);
+    font-weight: 800;
+    font-style: italic;
+    font-size: 1rem;
+    letter-spacing: 0.2px;
+    line-height: 1;
+  }
+  .wr-pct--win { color: var(--win); }
+  .wr-pct--loss { color: var(--loss); }
+  .wr-record {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .wr-record .w { color: var(--win); font-weight: 700; }
+  .wr-record .l { color: var(--loss); font-weight: 700; }
+  .wr-bar {
+    height: 10px;
+    border-radius: 999px;
+    overflow: hidden;
+    display: flex;
+    width: 100%;
+    background: #24181a;
+  }
+  .wr-bar__win { height: 100%; background: var(--win); }
+  .wr-bar__loss { height: 100%; background: var(--loss); }
+
+  /* stats */
+  td.col-stats { width: 116px; text-align: center; }
+  .opgg-btn {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.74rem;
+    padding: 8px 13px;
+    border-radius: 8px;
+    text-decoration: none;
+    white-space: nowrap;
+    display: inline-block;
+  }
+  .opgg-btn:hover { filter: brightness(1.12); }
+
+
+  .error-cell { color: var(--loss); font-size: 0.85rem; text-align: left; }
+
+  /* ---------- Mobile: la tabla se convierte en tarjetas apiladas ---------- */
+  @media (max-width: 760px) {
+    table.board { min-width: 0; border-spacing: 0; }
+    .board thead { display: none; }
+    .board tbody tr { display: block; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+    .board tbody tr.row--top1 { border-color: var(--gold); }
+    .board tbody td { display: block; width: auto !important; border: none; border-bottom: 1px solid var(--border-soft); border-radius: 0 !important; text-align: left !important; }
+    .board tbody td:last-child { border-bottom: none; }
+    .board tbody td::before {
+      content: attr(data-label);
+      display: block;
+      font-family: var(--mono);
+      font-size: 0.58rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      margin-bottom: 6px;
+    }
+    td.col-player::before { display: none; }
+    .elo-cell { justify-content: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav__inner">
+    <a class="topnav__brand" href="index.html">SPQC</a>
+    <div class="topnav__links">
+      <a href="index.html" class="active">Tabla</a>
+      <a href="live.html">En vivo</a>
+      <a href="rules.html">Reglas</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <h1 class="hero__logo">SPQC</h1>
+  <div class="hero__subtitle">SoloPeruQChallenge</div>
+  <div class="hero__tag">LAN</div>
+
+  <div class="clock" id="clock">
+    <div class="clock__label">El reto termina en</div>
+    <div class="clock__row" id="clock-row">
+      <div class="clock__box"><div class="clock__digits" id="c-days">--</div><div class="clock__unit">Días</div></div>
+      <div class="clock__sep">:</div>
+      <div class="clock__box"><div class="clock__digits" id="c-hours">--</div><div class="clock__unit">Hrs</div></div>
+      <div class="clock__sep">:</div>
+      <div class="clock__box"><div class="clock__digits" id="c-mins">--</div><div class="clock__unit">Min</div></div>
+      <div class="clock__sep">:</div>
+      <div class="clock__box"><div class="clock__digits" id="c-secs">--</div><div class="clock__unit">Seg</div></div>
+    </div>
+    <div class="clock__meta">21 AGO 2026 → 21 SET 2026 · 8:00 PM hora Colombia</div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="block block--board">
+    <div class="eyebrow"><span class="live-dot" style="animation:none;background:var(--accent)"></span> Tabla de posiciones</div>
+    <div id="status-msg">Cargando leaderboard...</div>
+    <div class="board-wrap">
+      <table class="board" id="board" style="display:none">
+        <colgroup>
+          <col style="width:46px">
+          <col style="width:26%">
+          <col style="width:92px">
+          <col style="width:128px">
+          <col>
+          <col style="width:128px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="col-rank">#</th>
+            <th class="col-player">Jugador</th>
+            <th class="col-role">Rol</th>
+            <th class="col-elo">Elo</th>
+            <th class="col-wr">Winrate</th>
+            <th class="col-stats">Stats</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<footer>Orlaman come velgas · Actualiza la página para refrescar</footer>
+
+<script>
+const TIER_COLOR = {
+  IRON: '#8a8a8a', BRONZE: '#cd7f32', SILVER: '#c0c0c0', GOLD: '#ffd700',
+  PLATINUM: '#4ce0d2', EMERALD: '#3ddc84', DIAMOND: '#5cc9ff',
+  MASTER: '#c86eff', GRANDMASTER: '#ff5c5c', CHALLENGER: '#ffea70', UNRANKED: '#666'
+};
+
+// Color propio por linea, para que el chip de rol sea mas llamativo y facil de distinguir de un vistazo.
+const ROLE_COLOR = {
+  TOP: '#e0a458', JUNGLA: '#3ddc84', MID: '#c86eff', ADC: '#ff3b4e', SUPPORT: '#5cc9ff'
+};
+
+// Iconos oficiales de posicion de Riot (SVG de un solo color, sin fondo blanco).
+// Se recolorean con mask-image + background-color en CSS para que combinen con el color de cada linea.
+const ROLE_ICON = {
+  TOP:     'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/svg/position-top.svg',
+  JUNGLA:  'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/svg/position-jungle.svg',
+  MID:     'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/svg/position-middle.svg',
+  ADC:     'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/svg/position-bottom.svg',
+  SUPPORT: 'https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/svg/position-utility.svg',
+};
+
+function emblemUrl(tier) {
+  if (!tier || tier === 'UNRANKED') return null;
+  return `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblem/emblem-${tier.toLowerCase()}.png`;
+}
+
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16), g = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+const CHALLENGE_END = new Date('2026-09-21T20:00:00-05:00').getTime();
+function pad(n) { return String(n).padStart(2, '0'); }
+function tickClock() {
+  const diff = CHALLENGE_END - Date.now();
+  const clockEl = document.getElementById('clock');
+  if (diff <= 0) {
+    clockEl.classList.add('clock--done');
+    ['c-days','c-hours','c-mins','c-secs'].forEach(id => document.getElementById(id).textContent = '00');
+    document.querySelector('.clock__label').textContent = 'El reto ha finalizado';
+    return;
+  }
+  const s = Math.floor(diff / 1000);
+  document.getElementById('c-days').textContent = pad(Math.floor(s / 86400));
+  document.getElementById('c-hours').textContent = pad(Math.floor((s % 86400) / 3600));
+  document.getElementById('c-mins').textContent = pad(Math.floor((s % 3600) / 60));
+  document.getElementById('c-secs').textContent = pad(s % 60);
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+function roleChipHtml(role) {
+  if (!role) return `<span class="role-chip role-chip--empty">—</span>`;
+  const color = ROLE_COLOR[role] || '#888';
+  const iconUrl = ROLE_ICON[role];
+  const iconHtml = iconUrl ? `<span class="role-chip__icon" style="--icon-url:url('${iconUrl}')"></span>` : '';
+  return `<span class="role-chip" style="--role-c:${color}; --role-bg:${hexToRgba(color, 0.1)}">${iconHtml}${role}</span>`;
+}
+
+// La tabla ya NO revisa si cada jugador está en partida (eso significaba una consulta
+// extra a la API de Riot por jugador, cada 20s). El estado "en vivo" solo se calcula
+// en live.html, que se carga bajo demanda cuando alguien entra a esa pestaña.
+async function load() {
+  const statusMsg = document.getElementById('status-msg');
+  const boardEl = document.getElementById('board');
+  const rowsEl = document.getElementById('rows');
+  try {
+    const res = await fetch('/api/leaderboard');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error desconocido');
+
+    statusMsg.style.display = 'none';
+    boardEl.style.display = '';
+    rowsEl.innerHTML = '';
+
+    data.leaderboard.forEach((p, i) => {
+      const tr = document.createElement('tr');
+      tr.className = i === 0 && !p.error ? 'row--top1' : '';
+
+      if (p.error) {
+        tr.innerHTML = `
+          <td class="col-rank" data-label="#"><span class="rank-num">${i + 1}</span></td>
+          <td class="col-player" data-label="Jugador">
+            <div class="player-cell">
+              <img class="player-cell__avatar" src="${p.avatar || ''}" onerror="this.style.visibility='hidden'">
+              <div class="player-cell__text"><div class="player-name">${p.displayName}</div></div>
+            </div>
+          </td>
+          <td class="error-cell" data-label="Estado" colspan="3">No se pudo cargar: ${p.error}</td>
+          <td class="col-stats" data-label="Stats"><a class="opgg-btn" href="${p.opgg}" target="_blank" rel="noopener">OP.GG →</a></td>
+        `;
+        rowsEl.appendChild(tr);
+        return;
+      }
+
+      const emblem = emblemUrl(p.tier);
+      const isWinning = p.winrate !== null && p.winrate >= 50;
+      const wrBar = p.winrate !== null
+        ? `<div class="wr-bar"><div class="wr-bar__win" style="width:${p.winrate}%"></div><div class="wr-bar__loss" style="width:${100 - p.winrate}%"></div></div>`
+        : '';
+      const tierColor = TIER_COLOR[p.tier] || TIER_COLOR.UNRANKED;
+
+      tr.innerHTML = `
+        <td class="col-rank" data-label="#"><span class="rank-num">${i + 1}</span></td>
+        <td class="col-player" data-label="Jugador">
+          <div class="player-cell">
+            <img class="player-cell__avatar" src="${p.avatar || ''}" onerror="this.style.visibility='hidden'">
+            <div class="player-cell__text">
+              <div class="player-name">${p.displayName}</div>
+              <div class="player-account">${p.gameName}#${p.tagLine}</div>
+            </div>
+          </div>
+        </td>
+        <td class="col-role" data-label="Rol">${roleChipHtml(p.role)}</td>
+        <td class="col-elo" data-label="Elo">
+          <div class="elo-cell">
+            ${emblem ? `<img class="elo-cell__emblem" src="${emblem}" alt="${p.tier}" style="filter:drop-shadow(0 0 6px ${hexToRgba(tierColor, 0.55)})" onerror="this.style.display='none'">` : ''}
+            <div class="elo-cell__text">
+              <div class="tier-label" style="color:${tierColor}">${p.tier}${p.rank ? ' ' + p.rank : ''}</div>
+              <div class="lp-label">${p.leaguePoints} LP</div>
+            </div>
+          </div>
+        </td>
+        <td class="col-wr" data-label="Winrate">
+          <div class="wr-cell">
+            <div class="wr-top">
+              ${p.winrate !== null ? `<span class="wr-pct ${isWinning ? 'wr-pct--win' : 'wr-pct--loss'}">${p.winrate}%</span>` : `<span class="wr-pct">—</span>`}
+              <span class="wr-record"><span class="w">${p.wins}V</span> · <span class="l">${p.losses}D</span></span>
+            </div>
+            ${wrBar}
+          </div>
+        </td>
+        <td class="col-stats" data-label="Stats">
+          <a class="opgg-btn" href="${p.opgg}" target="_blank" rel="noopener">OP.GG →</a>
+        </td>
+      `;
+      rowsEl.appendChild(tr);
+    });
+  } catch (err) {
+    statusMsg.textContent = 'Error: ' + err.message;
+  }
+}
+
+load();
+setInterval(load, 20000);
+</script>
+</body>
+</html>

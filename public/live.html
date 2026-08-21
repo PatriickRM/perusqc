@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>En vivo — SPQC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .page-head { text-align: center; padding: 44px 20px 8px; }
+  .page-head__eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 3px; color: var(--text-dim); display:flex; align-items:center; justify-content:center; gap:8px;}
+  .page-head__main { font-family: var(--display); font-size: clamp(2.2rem, 8vw, 3rem); letter-spacing: 2px; color: var(--accent); text-shadow: 0 0 34px var(--accent-glow); margin: 6px 0 2px; }
+  .page-head__sub { color: var(--text-dim); font-size: 0.9rem; }
+
+  .match-card {
+    background: var(--bg-card);
+    border: 1px solid var(--live);
+    border-radius: 16px;
+    padding: 18px 20px 20px;
+    margin-bottom: 22px;
+  }
+  .match-card__top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .match-card__queue { font-size: 0.86rem; font-weight: 700; }
+  .match-card__timer {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--live);
+    display: flex; align-items: center; gap: 7px;
+  }
+
+  /* bans: chiquitos arriba */
+  .bans { display: flex; align-items: center; gap: 10px; padding: 10px 0 14px; border-bottom: 1px solid var(--border-soft); margin-bottom: 14px; flex-wrap: wrap; }
+  .bans__label { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-faint); margin-right: 4px; }
+  .ban-chip { position: relative; width: 26px; height: 26px; border-radius: 6px; overflow: hidden; border: 1px solid var(--loss); opacity: 0.85; flex-shrink: 0; }
+  .ban-chip img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(45%); }
+  .ban-chip::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 44%, var(--loss) 47%, var(--loss) 53%, transparent 56%); }
+  .bans__none { font-family: var(--mono); font-size: 0.72rem; color: var(--text-faint); }
+
+  /* dos equipos, uno junto al otro en desktop, apilados en mobile */
+  .teams { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .team__label { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-faint); margin-bottom: 8px; }
+  .team--blue .team__label { color: #6fb8ff; }
+  .team--red .team__label { color: #ff8f7a; }
+
+  .participant {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 9px;
+    border-radius: 9px;
+    margin-bottom: 5px;
+  }
+  .participant--tracked {
+    background: var(--accent-dim);
+    border: 1px solid var(--accent);
+  }
+  .participant__champ { width: 32px; height: 32px; border-radius: 7px; border: 1px solid var(--border); flex-shrink: 0; background: #201415; }
+  .participant__name { min-width: 0; flex: 1; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .participant--tracked .participant__name { font-weight: 700; }
+  .participant__rank {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: #08090c;
+    background: var(--accent);
+    border-radius: 999px;
+    padding: 1px 7px;
+    flex-shrink: 0;
+  }
+
+  .no-live {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 0.85rem;
+  }
+
+  @media (max-width: 560px) {
+    .teams { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav__inner">
+    <a class="topnav__brand" href="index.html">SPQC</a>
+    <div class="topnav__links">
+      <a href="index.html">Tabla</a>
+      <a href="live.html" class="active">En vivo</a>
+      <a href="rules.html">Reglas</a>
+    </div>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="page-head__eyebrow"><span class="live-dot"></span> En vivo</div>
+  <div class="page-head__main">PARTIDAS ACTIVAS</div>
+  <div class="page-head__sub">Cada partida donde hay un jugador del reto — con sus 10 invocadores</div>
+</header>
+
+<main class="wrap" style="padding-top: 30px;">
+  <div id="status-msg" class="no-live">Buscando partidas en vivo...</div>
+  <div id="matches"></div>
+</main>
+
+<footer>Datos en vivo vía Riot Games API · Se actualiza solo cada 15s</footer>
+
+<script>
+const QUEUE_NAME = {
+  420: 'Clasificatoria Solo/Dúo', 440: 'Clasificatoria Flexible',
+  400: 'Normal (Draft)', 430: 'Normal (Ciego)', 450: 'ARAM'
+};
+
+let championById = null;
+async function getChampionMap() {
+  if (championById) return championById;
+  try {
+    const versions = await (await fetch('https://ddragon.leagueoflegends.com/api/versions.json')).json();
+    const version = versions[0];
+    const data = await (await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/es_MX/champion.json`)).json();
+    championById = { version, map: {} };
+    Object.values(data.data).forEach(c => { championById.map[c.key] = { name: c.name, id: c.id }; });
+  } catch {
+    championById = { version: null, map: {} };
+  }
+  return championById;
+}
+function championIconUrl(version, champId) {
+  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${champId}.png`;
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+function fmtElapsed(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const m = Math.floor(s / 60);
+  return `${m}:${pad(s % 60)}`;
+}
+const liveTimers = [];
+function startTimer(el, startMs) {
+  function update() { el.textContent = fmtElapsed(Date.now() - startMs); }
+  update();
+  liveTimers.push(setInterval(update, 1000));
+}
+
+function participantRow(p, champData, trackedByChamp) {
+  const champ = champData.map[p.championId];
+  const tracked = trackedByChamp.get(p.championId);
+  const name = tracked ? tracked.displayName : (p.riotId || 'Invocador');
+  const src = champ && champData.version ? championIconUrl(champData.version, champ.id) : '';
+  return `
+    <div class="participant ${tracked ? 'participant--tracked' : ''}">
+      <img class="participant__champ" src="${src}" onerror="this.style.visibility='hidden'">
+      <span class="participant__name">${name}${champ ? ` <span style="color:var(--text-faint);font-weight:400;">· ${champ.name}</span>` : ''}</span>
+      ${tracked ? `<span class="participant__rank">#${tracked.rank}</span>` : ''}
+    </div>
+  `;
+}
+
+async function render(matches) {
+  const container = document.getElementById('matches');
+  const statusMsg = document.getElementById('status-msg');
+
+  liveTimers.forEach(clearInterval);
+  liveTimers.length = 0;
+
+  if (!matches.length) {
+    statusMsg.textContent = 'Nadie del reto está jugando ahora mismo.';
+    statusMsg.style.display = '';
+    container.innerHTML = '';
+    return;
+  }
+  statusMsg.style.display = 'none';
+
+  const champData = await getChampionMap();
+  container.innerHTML = '';
+
+  matches.forEach(match => {
+    const trackedByChamp = new Map(match.tracked.map(t => [t.championId, t]));
+    const blue = match.participants.filter(p => p.teamId === 100);
+    const red = match.participants.filter(p => p.teamId === 200);
+
+    const div = document.createElement('div');
+    div.className = 'match-card';
+    div.innerHTML = `
+      <div class="match-card__top">
+        <span class="live-dot"></span>
+        <span class="match-card__queue">${QUEUE_NAME[match.queueId] || 'Partida personalizada'}</span>
+        <div class="match-card__timer"><span class="timer-value">0:00</span></div>
+      </div>
+      ${match.bans && match.bans.length ? `
+      <div class="bans">
+        <span class="bans__label">Baneos</span>
+        ${match.bans.map(b => {
+          const bc = champData.map[b.championId];
+          const src = bc && champData.version ? championIconUrl(champData.version, bc.id) : '';
+          return `<div class="ban-chip" title="${bc ? bc.name : 'Campeón'}"><img src="${src}" onerror="this.style.visibility='hidden'"></div>`;
+        }).join('')}
+      </div>` : `<div class="bans"><span class="bans__none">Sin baneos registrados</span></div>`}
+      <div class="teams">
+        <div class="team team--blue">
+          <div class="team__label">Equipo Azul</div>
+          ${blue.map(p => participantRow(p, champData, trackedByChamp)).join('')}
+        </div>
+        <div class="team team--red">
+          <div class="team__label">Equipo Rojo</div>
+          ${red.map(p => participantRow(p, champData, trackedByChamp)).join('')}
+        </div>
+      </div>
+    `;
+    container.appendChild(div);
+    startTimer(div.querySelector('.timer-value'), match.gameStartMs);
+  });
+}
+
+async function load() {
+  try {
+    const res = await fetch('/api/live');
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error desconocido');
+    render(data.matches);
+  } catch (err) {
+    document.getElementById('status-msg').textContent = 'Error: ' + err.message;
+    document.getElementById('status-msg').style.display = '';
+  }
+}
+
+load();
+setInterval(load, 15000);
+</script>
+</body>
+</html>
