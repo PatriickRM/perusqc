@@ -228,25 +228,48 @@
 
   /* ---------- Mobile: la tabla se convierte en tarjetas apiladas ---------- */
   @media (max-width: 760px) {
-    table.board { min-width: 0; border-spacing: 0; }
-    .board thead { display: none; }
-    .board tbody tr { display: block; margin-bottom: 14px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-    .board tbody tr.row--top1 { border-color: var(--gold); }
-    .board tbody td { display: block; width: auto !important; border: none; border-bottom: 1px solid var(--border-soft); border-radius: 0 !important; text-align: left !important; }
-    .board tbody td:last-child { border-bottom: none; }
-    .board tbody td::before {
-      content: attr(data-label);
-      display: block;
-      font-family: var(--mono);
-      font-size: 0.58rem;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-      color: var(--text-faint);
-      margin-bottom: 6px;
-    }
-    td.col-player::before { display: none; }
-    .elo-cell { justify-content: flex-start; }
+  table.board {
+    display: block;
+    width: 100%;
+    max-width: none;
   }
+  .board tbody {
+    display: block;
+    width: 100%;
+  }
+  table.board { min-width: 0; border-spacing: 0; }
+  .board thead { display: none; }
+  .board tbody tr {
+    display: block;
+    width: 100%;
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .board tbody tr.row--top1 { border-color: var(--gold); }
+  .board tbody td {
+    display: block;
+    width: auto !important;
+    border: none;
+    border-bottom: 1px solid var(--border-soft);
+    border-radius: 0 !important;
+    text-align: left !important;
+  }
+  .board tbody td:last-child { border-bottom: none; }
+  .board tbody td::before {
+    content: attr(data-label);
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 6px;
+  }
+  td.col-player::before { display: none; }
+  .elo-cell { justify-content: flex-start; }
+}
 </style>
 </head>
 <body>
