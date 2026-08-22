@@ -69,6 +69,13 @@ const ACCOUNTS = [
     role: 'JUNGLA',
     avatar: 'https://cdn.readawrite.com/publicassets/14691481/images/8243705298_IMG_4695.jpeg'
   },
+  {
+    displayName: 'Defcon',
+    gameName: 'JazzParalelado',
+    tagLine: '78911',
+    role: 'JUNGLA',
+    avatar: 'https://static.wikia.nocookie.net/rickandmorty/images/e/ee/Morty501.png/revision/latest/thumbnail/width/360/height/450?cb=20210827150137'
+  },
 ];
 
 const TIER_VALUE = {
