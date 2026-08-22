@@ -175,16 +175,16 @@ function startTimer(el, startMs) {
   liveTimers.push(setInterval(update, 1000));
 }
 
-function eloChipHtml(tracked) {
-  const tier = tracked.tier || 'UNRANKED';
+function eloChipHtml(p) {
+  const tier = p.tier || 'UNRANKED';
   const color = TIER_COLOR[tier] || TIER_COLOR.UNRANKED;
   const emblem = emblemUrl(tier);
-  const showsDivision = tier !== 'UNRANKED' && !NO_DIVISION_TIERS.has(tier) && tracked.division;
-  const lp = typeof tracked.leaguePoints === 'number' ? tracked.leaguePoints : null;
+  const showsDivision = tier !== 'UNRANKED' && !NO_DIVISION_TIERS.has(tier) && p.division;
+  const lp = typeof p.leaguePoints === 'number' ? p.leaguePoints : null;
   return `
     <span class="participant__elo" style="color:${color}">
       ${emblem ? `<img src="${emblem}" alt="${tier}" onerror="this.style.display='none'">` : ''}
-      ${tier}${showsDivision ? ' ' + tracked.division : ''}${lp !== null ? ` <span class="participant__elo-lp">· ${lp} LP</span>` : ''}
+      ${tier}${showsDivision ? ' ' + p.division : ''}${lp !== null ? ` <span class="participant__elo-lp">· ${lp} LP</span>` : ''}
     </span>
   `;
 }
@@ -199,7 +199,7 @@ function participantRow(p, champData, trackedByChamp) {
       <img class="participant__champ" src="${src}" onerror="this.style.visibility='hidden'">
       <div class="participant__body">
         <span class="participant__name">${name}${champ ? ` <span class="participant__champ-name">· ${champ.name}</span>` : ''}</span>
-        ${tracked ? eloChipHtml(tracked) : ''}
+        ${eloChipHtml(p)}
       </div>
       ${tracked ? `<span class="participant__rank">#${tracked.rank}</span>` : ''}
     </div>

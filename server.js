@@ -220,9 +220,11 @@ async function loadLiveStatus(player) {
 
   // Participantes completos (10) para poder mostrar la partida entera en /en-vivo.
   // riotId viene directo del endpoint spectator-v5; si Riot no lo manda para algún
-  // participante, el cliente cae de vuelta a "Invocador".
+  // participante, el cliente cae de vuelta a "Invocador". Guardamos también el
+  // puuid de cada uno para poder pedir su elo más abajo.
   const participants = (liveGame.participants || []).map(p => ({
     riotId: p.riotId || null,
+    puuid: p.puuid || null,
     championId: p.championId,
     teamId: p.teamId,
     spell1Id: p.spell1Id,
@@ -240,6 +242,45 @@ async function loadLiveStatus(player) {
     bans,
     participants,
   };
+}
+
+// ---------- Elo de rivales/compañeros que no son del reto ----------
+// El elo de los jugadores del reto ya lo tenemos gratis (viene con el
+// leaderboard). Para los otros participantes hay que pedirle a Riot su
+// league entry por puuid — eso sí es una llamada nueva por persona, así que
+// se cachea por 10 minutos: el elo de alguien no cambia tan rápido como para
+// justificar pedirlo de nuevo cada 15s que refresca la página.
+const PARTICIPANT_ELO_TTL_MS = 10 * 60 * 1000;
+const participantEloCache = new Map(); // puuid -> { at, elo }
+
+async function getParticipantElo(puuid) {
+  if (!puuid) return { tier: 'UNRANKED', division: '', leaguePoints: 0 };
+
+  const cached = participantEloCache.get(puuid);
+  const now = Date.now();
+  if (cached && now - cached.at < PARTICIPANT_ELO_TTL_MS) {
+    return cached.elo;
+  }
+
+  let elo = { tier: 'UNRANKED', division: '', leaguePoints: 0 };
+  try {
+    const entries = await riotFetch(
+      `https://${PLATFORM}.api.riotgames.com/lol/league/v4/entries/by-puuid/${puuid}`
+    );
+    const ranked = (entries || []).find(e => e.queueType === 'RANKED_SOLO_5x5') || null;
+    if (ranked) {
+      elo = {
+        tier: ranked.tier,
+        division: NO_DIVISION_TIERS.has(ranked.tier) ? '' : ranked.rank,
+        leaguePoints: ranked.leaguePoints,
+      };
+    }
+  } catch (err) {
+    // si falla, se sirve como UNRANKED en vez de tumbar toda la partida
+  }
+
+  participantEloCache.set(puuid, { at: now, elo });
+  return elo;
 }
 
 async function buildLiveMatches() {
@@ -274,15 +315,24 @@ async function buildLiveMatches() {
       rank: rankIndex + 1,
       teamId: live.teamId,
       championId: live.championId,
-      // Elo ya viene incluido en el objeto de leaderboard cacheado (p), así que
-      // mostrarlo acá no cuesta ninguna llamada extra a la Riot API.
-      tier: p.tier,
-      division: p.rank,
-      leaguePoints: p.leaguePoints,
     });
   });
 
-  return Array.from(byGame.values());
+  // Elo de los del reto ya lo tenemos (leaderboard); para el resto se pide
+  // (con caché) usando su puuid.
+  const eloByPuuid = new Map(players.map(p => [p.puuid, {
+    tier: p.tier, division: NO_DIVISION_TIERS.has(p.tier) ? '' : p.rank, leaguePoints: p.leaguePoints,
+  }]));
+
+  const games = Array.from(byGame.values());
+  await Promise.all(games.map(async game => {
+    game.participants = await Promise.all(game.participants.map(async part => {
+      const elo = (part.puuid && eloByPuuid.get(part.puuid)) || await getParticipantElo(part.puuid);
+      return { ...part, tier: elo.tier, division: elo.division, leaguePoints: elo.leaguePoints };
+    }));
+  }));
+
+  return games;
 }
 
 app.get('/api/live', async (_req, res) => {
