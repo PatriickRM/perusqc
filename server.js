@@ -33,10 +33,10 @@ const ACCOUNTS = [
   },
   {
     displayName: 'Orlaman',
-    gameName: 'SHELÐON',
-    tagLine: 'LAN',
+    gameName: 'Ragnarok Now',
+    tagLine: '5714',
     role: 'TOP',
-    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTuv0_D-ziTirIDN5heYEQHZR-MFszBov_QZUfIeAG6KdJNut9h33iyEqBr&s=10'
+    avatar: 'https://cmsassets.rgpub.io/sanity/images/dsfx7636/news_live/4ec4cfe0876d75894251d97ae88e682e391b90bd-1600x900.jpg?accountingTag=LoL&auto=format&fit=crop&q=80&h=537&w=956&crop=center'
   },
   {
     displayName: 'Zoe',
