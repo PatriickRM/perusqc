@@ -34,7 +34,7 @@ const ACCOUNTS = [
   {
     displayName: 'Orlaman',
     gameName: 'Ragnarok Now',
-    tagLine: '5714',
+    tagLine: 'Peru',
     role: 'TOP',
     avatar: 'https://cmsassets.rgpub.io/sanity/images/dsfx7636/news_live/4ec4cfe0876d75894251d97ae88e682e391b90bd-1600x900.jpg?accountingTag=LoL&auto=format&fit=crop&q=80&h=537&w=956&crop=center'
   },
