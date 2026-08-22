@@ -70,7 +70,7 @@ const ACCOUNTS = [
     avatar: 'https://cdn.readawrite.com/publicassets/14691481/images/8243705298_IMG_4695.jpeg'
   },
   {
-    displayName: 'Defcon',
+    displayName: 'JazzEvans',
     gameName: 'JazzParalelado',
     tagLine: '78911',
     role: 'JUNGLA',
