@@ -274,6 +274,11 @@ async function buildLiveMatches() {
       rank: rankIndex + 1,
       teamId: live.teamId,
       championId: live.championId,
+      // Elo ya viene incluido en el objeto de leaderboard cacheado (p), así que
+      // mostrarlo acá no cuesta ninguna llamada extra a la Riot API.
+      tier: p.tier,
+      division: p.rank,
+      leaguePoints: p.leaguePoints,
     });
   });
 

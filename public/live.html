@@ -36,14 +36,6 @@
     display: flex; align-items: center; gap: 7px;
   }
 
-  /* bans: chiquitos arriba */
-  .bans { display: flex; align-items: center; gap: 10px; padding: 10px 0 14px; border-bottom: 1px solid var(--border-soft); margin-bottom: 14px; flex-wrap: wrap; }
-  .bans__label { font-family: var(--mono); font-size: 0.62rem; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-faint); margin-right: 4px; }
-  .ban-chip { position: relative; width: 26px; height: 26px; border-radius: 6px; overflow: hidden; border: 1px solid var(--loss); opacity: 0.85; flex-shrink: 0; }
-  .ban-chip img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(45%); }
-  .ban-chip::after { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, transparent 44%, var(--loss) 47%, var(--loss) 53%, transparent 56%); }
-  .bans__none { font-family: var(--mono); font-size: 0.72rem; color: var(--text-faint); }
-
   /* dos equipos, uno junto al otro en desktop, apilados en mobile */
   .teams { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
   .team__label { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text-faint); margin-bottom: 8px; }
@@ -63,8 +55,24 @@
     border: 1px solid var(--accent);
   }
   .participant__champ { width: 32px; height: 32px; border-radius: 7px; border: 1px solid var(--border); flex-shrink: 0; background: #201415; }
-  .participant__name { min-width: 0; flex: 1; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .participant__body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .participant__name { font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .participant--tracked .participant__name { font-weight: 700; }
+  .participant__champ-name { color: var(--text-faint); font-weight: 400; }
+
+  /* elo del jugador rastreado: emblema chiquito + tier/división + LP */
+  .participant__elo {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .participant__elo img { width: 15px; height: 15px; flex-shrink: 0; }
+  .participant__elo-lp { color: var(--text-faint); }
+
   .participant__rank {
     font-family: var(--mono);
     font-size: 0.66rem;
@@ -122,6 +130,20 @@ const QUEUE_NAME = {
   400: 'Normal (Draft)', 430: 'Normal (Ciego)', 450: 'ARAM'
 };
 
+// Mismo mapeo de colores por tier que usa la tabla principal, para que el
+// elo se vea consistente en toda la página.
+const TIER_COLOR = {
+  IRON: '#8a8a8a', BRONZE: '#cd7f32', SILVER: '#c0c0c0', GOLD: '#ffd700',
+  PLATINUM: '#4ce0d2', EMERALD: '#3ddc84', DIAMOND: '#5cc9ff',
+  MASTER: '#c86eff', GRANDMASTER: '#ff5c5c', CHALLENGER: '#ffea70', UNRANKED: '#666'
+};
+const NO_DIVISION_TIERS = new Set(['MASTER', 'GRANDMASTER', 'CHALLENGER']);
+
+function emblemUrl(tier) {
+  if (!tier || tier === 'UNRANKED') return null;
+  return `https://raw.communitydragon.org/latest/plugins/rcp-fe-lol-static-assets/global/default/images/ranked-emblem/emblem-${tier.toLowerCase()}.png`;
+}
+
 let championById = null;
 async function getChampionMap() {
   if (championById) return championById;
@@ -153,6 +175,20 @@ function startTimer(el, startMs) {
   liveTimers.push(setInterval(update, 1000));
 }
 
+function eloChipHtml(tracked) {
+  const tier = tracked.tier || 'UNRANKED';
+  const color = TIER_COLOR[tier] || TIER_COLOR.UNRANKED;
+  const emblem = emblemUrl(tier);
+  const showsDivision = tier !== 'UNRANKED' && !NO_DIVISION_TIERS.has(tier) && tracked.division;
+  const lp = typeof tracked.leaguePoints === 'number' ? tracked.leaguePoints : null;
+  return `
+    <span class="participant__elo" style="color:${color}">
+      ${emblem ? `<img src="${emblem}" alt="${tier}" onerror="this.style.display='none'">` : ''}
+      ${tier}${showsDivision ? ' ' + tracked.division : ''}${lp !== null ? ` <span class="participant__elo-lp">· ${lp} LP</span>` : ''}
+    </span>
+  `;
+}
+
 function participantRow(p, champData, trackedByChamp) {
   const champ = champData.map[p.championId];
   const tracked = trackedByChamp.get(p.championId);
@@ -161,7 +197,10 @@ function participantRow(p, champData, trackedByChamp) {
   return `
     <div class="participant ${tracked ? 'participant--tracked' : ''}">
       <img class="participant__champ" src="${src}" onerror="this.style.visibility='hidden'">
-      <span class="participant__name">${name}${champ ? ` <span style="color:var(--text-faint);font-weight:400;">· ${champ.name}</span>` : ''}</span>
+      <div class="participant__body">
+        <span class="participant__name">${name}${champ ? ` <span class="participant__champ-name">· ${champ.name}</span>` : ''}</span>
+        ${tracked ? eloChipHtml(tracked) : ''}
+      </div>
       ${tracked ? `<span class="participant__rank">#${tracked.rank}</span>` : ''}
     </div>
   `;
@@ -198,15 +237,6 @@ async function render(matches) {
         <span class="match-card__queue">${QUEUE_NAME[match.queueId] || 'Partida personalizada'}</span>
         <div class="match-card__timer"><span class="timer-value">0:00</span></div>
       </div>
-      ${match.bans && match.bans.length ? `
-      <div class="bans">
-        <span class="bans__label">Baneos</span>
-        ${match.bans.map(b => {
-          const bc = champData.map[b.championId];
-          const src = bc && champData.version ? championIconUrl(champData.version, bc.id) : '';
-          return `<div class="ban-chip" title="${bc ? bc.name : 'Campeón'}"><img src="${src}" onerror="this.style.visibility='hidden'"></div>`;
-        }).join('')}
-      </div>` : `<div class="bans"><span class="bans__none">Sin baneos registrados</span></div>`}
       <div class="teams">
         <div class="team team--blue">
           <div class="team__label">Equipo Azul</div>
