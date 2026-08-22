@@ -45,13 +45,7 @@ const ACCOUNTS = [
     role: 'SUPPORT',
     avatar: 'https://media.discordapp.net/attachments/522895219541147648/1540519150013644870/9ea9083ec93dff4e20b1ab5cd28ecf1e.png?ex=6a8a3fc2&is=6a88ee42&hm=8ed5e68c18549c546bf497bed794de503be2eea86bb0f312fe531619c80ea9e6&=&format=webp&quality=lossless'
   },
-  {
-    displayName: 'BasuraMan',
-    gameName: 'LTFelipe',
-    tagLine: 'LAN',
-    role: 'TOP',
-    avatar: 'https://static.wikia.nocookie.net/shrek/images/a/a8/Burro.jpg/revision/latest?cb=20160113210253&path-prefix=es'
-  },
+
   {
     displayName: 'karalej',
     gameName: 'Satenekig',
