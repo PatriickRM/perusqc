@@ -29,23 +29,22 @@ const ACCOUNTS = [
     gameName: 'Dark Mind',
     tagLine: 'MID',
     role: 'MID',
-    avatar: 'https://pbs.twimg.com/media/E5bJaYnX0AUZ89v.jpg'
+    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQFvBjWAI6NVRI_7iKHWrttrBhppgGPJUnJvsGzSrJUVM9yU4R1TXRy-Tc&s=10'
   },
   {
     displayName: 'Orlaman',
     gameName: 'Ragnarok Now',
     tagLine: 'Peru',
     role: 'TOP',
-    avatar: 'https://cmsassets.rgpub.io/sanity/images/dsfx7636/news_live/4ec4cfe0876d75894251d97ae88e682e391b90bd-1600x900.jpg?accountingTag=LoL&auto=format&fit=crop&q=80&h=537&w=956&crop=center'
+    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQU4Q2-MWltchUuo1HPo4t3M17mEFs2jAujHUb8lmamDQ&s=10'
   },
   {
     displayName: 'Zoe',
     gameName: 'Minita Carreada',
     tagLine: 'Miau',
     role: 'ADC',
-    avatar: 'https://content-historia.nationalgeographic.com.es/medio/2020/11/02/laika_7c3e28af_550x542.jpg'
+    avatar: 'https://media.discordapp.net/attachments/522895219541147648/1540519150013644870/9ea9083ec93dff4e20b1ab5cd28ecf1e.png?ex=6a8a3fc2&is=6a88ee42&hm=8ed5e68c18549c546bf497bed794de503be2eea86bb0f312fe531619c80ea9e6&=&format=webp&quality=lossless'
   },
-
   {
     displayName: 'BasuraMan',
     gameName: 'LTFelipe',
@@ -72,7 +71,7 @@ const ACCOUNTS = [
     gameName: 'Dragonヤギ',
     tagLine: 'デフコン',
     role: 'JUNGLA',
-    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTkWq3EDmA1oARG8TPDR2ChJ6VBEewrRxa_vQxoYYziGw&s=10'
+    avatar: 'https://cdn.readawrite.com/publicassets/14691481/images/8243705298_IMG_4695.jpeg'
   },
 ];
 
