@@ -458,6 +458,90 @@
   #status-msg { text-align: center; color: var(--text-dim); padding: 24px; font-family: var(--mono); font-size: 0.85rem; }
   #counter-status { text-align: center; color: var(--text-dim); padding: 24px 0; font-family: var(--mono); font-size: 0.85rem; }
 
+  /* ---------- Cuenta / login ---------- */
+  .account-card, .pending-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 22px;
+    margin-bottom: 16px;
+  }
+  .pending-card {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(255, 59, 78, 0.18), 0 0 30px rgba(255, 59, 78, 0.1);
+  }
+  .card-title {
+    font-family: var(--mono); font-size: 0.68rem; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+  }
+  .login-form { display: flex; gap: 10px; flex-wrap: wrap; }
+  .login-form input {
+    flex: 1; min-width: 140px;
+    background: var(--bg-plate); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; color: var(--text);
+    font-family: var(--body); font-size: 0.88rem;
+  }
+  .login-form input:focus { outline: none; border-color: var(--accent); }
+  .login-form button {
+    font-family: var(--display); font-size: 0.95rem; letter-spacing: 1px; color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    border: none; border-radius: 10px; padding: 10px 24px; cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .login-form button:hover { filter: brightness(1.08); }
+  .login-hint { font-family: var(--mono); font-size: 0.68rem; color: var(--text-faint); margin-top: 10px; }
+  .login-error { font-family: var(--mono); font-size: 0.76rem; color: var(--accent); margin-top: 10px; min-height: 1em; }
+
+  .account-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .account-bar__who { font-size: 0.92rem; }
+  .account-bar__who b { color: var(--accent); }
+  .logout-btn {
+    font-family: var(--mono); font-size: 0.72rem; color: var(--text-dim); background: transparent;
+    border: 1px solid var(--border); border-radius: 999px; padding: 7px 16px; cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .logout-btn:hover { color: var(--text); border-color: var(--text-dim); }
+
+  .throw-box { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border); }
+  .throw-box__label { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 10px; }
+  .throw-box__row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .throw-box__row select {
+    flex: 1; min-width: 140px;
+    background: var(--bg-plate); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; color: var(--text);
+    font-family: var(--body); font-size: 0.88rem;
+  }
+  .throw-btn {
+    font-family: var(--display); font-size: 0.95rem; letter-spacing: 1px; color: #0a0708;
+    background: linear-gradient(135deg, var(--bs-flash), #a7e4ff);
+    border: none; border-radius: 10px; padding: 10px 22px; cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .throw-btn:hover { filter: brightness(1.06); }
+  .throw-msg { font-family: var(--mono); font-size: 0.76rem; color: var(--text-dim); margin-top: 10px; min-height: 1em; }
+
+  /* ---------- Blue shells pendientes ---------- */
+  .pending-list { display: flex; flex-direction: column; gap: 8px; }
+  .pending-row {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: var(--bg-plate);
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.86rem;
+    animation: resultPop 0.35s ease both;
+  }
+  .pending-row__text b { color: var(--text); }
+  .pending-row__time { font-family: var(--mono); font-size: 0.68rem; color: var(--text-faint); }
+  .pending-row__done-btn {
+    margin-left: auto;
+    font-family: var(--mono); font-size: 0.72rem; color: var(--win);
+    background: rgba(56, 217, 135, 0.1); border: 1px solid var(--win);
+    border-radius: 999px; padding: 6px 14px; cursor: pointer;
+    transition: filter 0.15s;
+  }
+  .pending-row__done-btn:hover { filter: brightness(1.15); }
+
   @media (max-width: 560px) {
     .player-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
   }
@@ -484,6 +568,42 @@
 </header>
 
 <main class="wrap" style="padding-top: 12px;">
+
+  <section class="account-card" id="account-card">
+    <div class="card-title">👤 Tu cuenta</div>
+
+    <div id="account-logged-out">
+      <form class="login-form" id="login-form">
+        <input type="text" id="login-username" placeholder="usuario" autocomplete="username" required>
+        <input type="password" id="login-password" placeholder="contraseña" autocomplete="current-password" required>
+        <button type="submit">Entrar</button>
+      </form>
+      <div class="login-hint">Tu usuario y contraseña son tu nombre en minúsculas (ej. defcon / defcon).</div>
+      <div class="login-error" id="login-error"></div>
+    </div>
+
+    <div id="account-logged-in" style="display:none">
+      <div class="account-bar">
+        <div class="account-bar__who">Conectado como <b id="account-name">—</b></div>
+        <button class="logout-btn" id="logout-btn">Salir</button>
+      </div>
+      <div class="throw-box">
+        <div class="throw-box__label">Tirale una Blue Shell a:</div>
+        <div class="throw-box__row">
+          <select id="throw-target"></select>
+          <button class="throw-btn" id="throw-btn">🐢 TIRAR</button>
+        </div>
+        <div class="throw-msg" id="throw-msg"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pending-card" id="pending-card">
+    <div class="card-title">⏳ Blue Shells pendientes</div>
+    <div class="pending-list" id="pending-list">
+      <div class="history-empty">No hay blue shells pendientes.</div>
+    </div>
+  </section>
 
   <section class="step" id="step-players">
     <div class="step__label"><span class="num">1</span> Elige un jugador</div>
@@ -937,7 +1057,172 @@ document.getElementById('change-player-btn').addEventListener('click', () => {
   document.getElementById('step-players').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
-loadPlayers().then(loadCounter);
+/* ---------- Cuenta / login ---------- */
+
+let currentToken = localStorage.getItem('spqc_token');
+let currentUser = localStorage.getItem('spqc_displayName');
+let lastPendingList = [];
+
+function authHeaders() {
+  return currentToken ? { 'x-spqc-token': currentToken } : {};
+}
+
+function populateThrowTargets() {
+  const sel = document.getElementById('throw-target');
+  sel.innerHTML = players
+    .filter(p => p.displayName !== currentUser)
+    .map(p => `<option value="${p.displayName}">${p.displayName}</option>`)
+    .join('');
+}
+
+function showLoggedIn() {
+  document.getElementById('account-logged-out').style.display = 'none';
+  document.getElementById('account-logged-in').style.display = '';
+  document.getElementById('account-name').textContent = currentUser;
+  populateThrowTargets();
+  renderPending(lastPendingList);
+}
+
+function showLoggedOut() {
+  document.getElementById('account-logged-out').style.display = '';
+  document.getElementById('account-logged-in').style.display = 'none';
+  renderPending(lastPendingList);
+}
+
+async function checkSession() {
+  if (!currentToken) { showLoggedOut(); return; }
+  try {
+    const res = await fetch(`${API_BASE}/api/session`, { headers: authHeaders() });
+    const data = await res.json();
+    if (!res.ok) throw new Error();
+    currentUser = data.displayName;
+    localStorage.setItem('spqc_displayName', currentUser);
+    showLoggedIn();
+  } catch {
+    currentToken = null;
+    currentUser = null;
+    localStorage.removeItem('spqc_token');
+    localStorage.removeItem('spqc_displayName');
+    showLoggedOut();
+  }
+}
+
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  try {
+    const res = await fetch(`${API_BASE}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al entrar');
+    currentToken = data.token;
+    currentUser = data.displayName;
+    localStorage.setItem('spqc_token', currentToken);
+    localStorage.setItem('spqc_displayName', currentUser);
+    document.getElementById('login-form').reset();
+    showLoggedIn();
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  try {
+    await fetch(`${API_BASE}/api/logout`, { method: 'POST', headers: authHeaders() });
+  } catch {}
+  currentToken = null;
+  currentUser = null;
+  localStorage.removeItem('spqc_token');
+  localStorage.removeItem('spqc_displayName');
+  showLoggedOut();
+});
+
+document.getElementById('throw-btn').addEventListener('click', async () => {
+  const sel = document.getElementById('throw-target');
+  const msgEl = document.getElementById('throw-msg');
+  msgEl.textContent = '';
+  if (!sel.value) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/blueshell/throw`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ to: sel.value }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al tirar la blue shell');
+    msgEl.textContent = `🐢 ¡Le tiraste una Blue Shell a ${sel.value}!`;
+    lastPendingList = data.pending || [];
+    renderPending(lastPendingList);
+  } catch (err) {
+    msgEl.textContent = err.message;
+  }
+});
+
+/* ---------- Blue Shells pendientes ---------- */
+
+function timeAgo(ts) {
+  const diffMin = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (diffMin < 1) return 'recién';
+  if (diffMin < 60) return `hace ${diffMin} min`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `hace ${diffH} h`;
+  const diffD = Math.round(diffH / 24);
+  return `hace ${diffD} d`;
+}
+
+function renderPending(list) {
+  const el = document.getElementById('pending-list');
+  if (!list.length) {
+    el.innerHTML = '<div class="history-empty">No hay blue shells pendientes 🎉</div>';
+    return;
+  }
+  el.innerHTML = list.slice().reverse().map(p => `
+    <div class="pending-row">
+      <span class="pending-row__text"><b>${p.from}</b> le tiró una 🐢 a <b>${p.to}</b></span>
+      <span class="pending-row__time">${timeAgo(p.createdAt)}</span>
+      ${currentUser === p.to ? `<button class="pending-row__done-btn" onclick="completePending('${p.id}')">✅ Ya la hice</button>` : ''}
+    </div>
+  `).join('');
+}
+
+async function loadPendingList() {
+  try {
+    const res = await fetch(`${API_BASE}/api/blueshell/pending`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error desconocido');
+    lastPendingList = data.pending || [];
+    renderPending(lastPendingList);
+  } catch (err) {
+    console.error('No se pudo cargar las blue shells pendientes:', err.message);
+  }
+}
+
+async function completePending(id) {
+  try {
+    const res = await fetch(`${API_BASE}/api/blueshell/pending/${id}/complete`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al marcar como hecha');
+    lastPendingList = data.pending || [];
+    renderPending(lastPendingList);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+loadPlayers().then(() => {
+  loadCounter();
+  checkSession();
+});
+loadPendingList();
 </script>
 </body>
 </html>

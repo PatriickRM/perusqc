@@ -5,6 +5,7 @@
 // La API key vive solo en el backend.
 
 const fs = require('fs');
+const crypto = require('crypto');
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -21,6 +22,21 @@ if (!RIOT_API_KEY) {
 
 const PLATFORM = 'la1'; // LAN
 const CONTINENT = 'americas';
+
+// Carpeta donde se guardan los archivos JSON persistentes (contador de blue
+// shells, blue shells pendientes). Por defecto es la carpeta del server, pero
+// en Railway (y hostings parecidos) el disco del contenedor es EFÍMERO: si el
+// proceso se reinicia o se hace un redeploy, todo lo que no esté en un Volume
+// persistente se borra. Por eso este path es configurable con DATA_DIR: se le
+// puede apuntar a un Railway Volume montado (ej. DATA_DIR=/data) para que el
+// contador sobreviva a los reinicios. Sin esa variable, sigue funcionando
+// igual que antes (mismo comportamiento, mismo bug si el hosting resetea el disco).
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+try {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+} catch (err) {
+  console.error(`No se pudo crear/usar DATA_DIR (${DATA_DIR}):`, err.message);
+}
 
 // Cuentas del leaderboard. "displayName" es el nombre "humano" que se muestra
 // grande en la tarjeta (ej. "Patrick"); gameName/tagLine es el Riot ID real
@@ -306,7 +322,7 @@ app.get('/api/live', async (_req, res) => {
 // de Railway lo hacen), este archivo se resetea. Si eso pasa seguido, lo ideal
 // es mover esto a una tablita en una base de datos real más adelante.
 const BLUESHELL_KEYS = ['AUTOFILL', 'SIN_FLASH', 'RANDOM_CHAMP', 'SIN_BOTAS'];
-const BLUESHELL_FILE = path.join(__dirname, 'blueshell-counts.json');
+const BLUESHELL_FILE = path.join(DATA_DIR, 'blueshell-counts.json');
 
 function emptyBlueshellEntry() {
   const byPrize = {};
@@ -316,8 +332,11 @@ function emptyBlueshellEntry() {
 
 function loadBlueshellCounts() {
   try {
-    return JSON.parse(fs.readFileSync(BLUESHELL_FILE, 'utf8'));
-  } catch {
+    const data = JSON.parse(fs.readFileSync(BLUESHELL_FILE, 'utf8'));
+    console.log(`✅ Contador de blue shells cargado desde ${BLUESHELL_FILE} (${Object.keys(data).length} jugadores).`);
+    return data;
+  } catch (err) {
+    console.warn(`⚠️  No se pudo leer ${BLUESHELL_FILE} (${err.code || err.message}). Arrancando el contador en 0. Si esto pasa seguido y no es la primera vez que corre el server, revisa si DATA_DIR está apuntando a un disco persistente.`);
     return {};
   }
 }
@@ -376,6 +395,128 @@ app.post('/api/blueshell/champion', (req, res) => {
   blueshellCounts[displayName].lastChampion = championName;
   saveBlueshellCounts(blueshellCounts);
   res.json({ ok: true, entry: blueshellCounts[displayName] });
+});
+
+// ---------- Login simple ----------
+// No es un sistema de seguridad de verdad, es solo para saber "quién es quién"
+// al tirar una blue shell. Usuario y contraseña son el nombre del jugador en
+// minúsculas y sin espacios/tildes (ej. displayName "Defcon" -> user: defcon,
+// pass: defcon). Se genera automáticamente desde ACCOUNTS, así que si agregas
+// un amigo nuevo ahí arriba, ya tiene su login sin tocar nada más acá.
+function normalizeUsername(str) {
+  return String(str || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // saca tildes
+    .replace(/[^a-z0-9]/g, ''); // saca espacios/símbolos
+}
+
+const USERS = ACCOUNTS.map(a => {
+  const u = normalizeUsername(a.displayName);
+  return { username: u, password: u, displayName: a.displayName };
+});
+
+// token -> { displayName, createdAt }. Vive en memoria: si el server se
+// reinicia, todos quedan deslogueados y tienen que volver a entrar (no pasa
+// nada, el login es instantáneo).
+const sessions = new Map();
+
+function getToken(req) {
+  return req.headers['x-spqc-token'] || (req.body && req.body.token) || req.query.token || null;
+}
+
+function requireAuth(req, res, next) {
+  const token = getToken(req);
+  const session = token && sessions.get(token);
+  if (!session) return res.status(401).json({ error: 'Tenés que iniciar sesión primero' });
+  req.displayName = session.displayName;
+  next();
+}
+
+app.post('/api/login', (req, res) => {
+  const { username, password } = req.body || {};
+  if (typeof username !== 'string' || typeof password !== 'string' || !username.trim() || !password) {
+    return res.status(400).json({ error: 'Falta usuario o contraseña' });
+  }
+  const u = normalizeUsername(username);
+  const user = USERS.find(x => x.username === u);
+  if (!user || user.password !== normalizeUsername(password)) {
+    return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+  }
+  const token = crypto.randomUUID();
+  sessions.set(token, { displayName: user.displayName, createdAt: Date.now() });
+  res.json({ ok: true, token, displayName: user.displayName });
+});
+
+app.post('/api/logout', (req, res) => {
+  const token = getToken(req);
+  if (token) sessions.delete(token);
+  res.json({ ok: true });
+});
+
+app.get('/api/session', (req, res) => {
+  const token = getToken(req);
+  const session = token && sessions.get(token);
+  if (!session) return res.status(401).json({ error: 'No autenticado' });
+  res.json({ ok: true, displayName: session.displayName });
+});
+
+// ---------- Blue Shells pendientes ----------
+// Cola simple de "fulano le tiró una blue shell a mengano". Cualquier cuenta
+// logueada puede tirarle una a otra; la víctima (logueada) es la única que
+// puede marcarla como hecha, y ahí desaparece de la lista.
+const PENDING_FILE = path.join(DATA_DIR, 'blueshell-pending.json');
+
+function loadPending() {
+  try {
+    return JSON.parse(fs.readFileSync(PENDING_FILE, 'utf8'));
+  } catch {
+    return [];
+  }
+}
+
+function savePending(list) {
+  try {
+    fs.writeFileSync(PENDING_FILE, JSON.stringify(list, null, 2));
+  } catch (err) {
+    console.error('No se pudo guardar blueshell-pending.json:', err.message);
+  }
+}
+
+let pendingBlueshells = loadPending();
+
+app.get('/api/blueshell/pending', (_req, res) => {
+  res.json({ pending: pendingBlueshells });
+});
+
+app.post('/api/blueshell/throw', requireAuth, (req, res) => {
+  const { to } = req.body || {};
+  const target = ACCOUNTS.find(a => a.displayName === to);
+  if (!target) return res.status(400).json({ error: 'Rival inválido' });
+  if (target.displayName === req.displayName) {
+    return res.status(400).json({ error: 'No te podés tirar una blue shell a vos mismo' });
+  }
+
+  const entry = {
+    id: crypto.randomUUID(),
+    from: req.displayName,
+    to: target.displayName,
+    createdAt: Date.now(),
+  };
+  pendingBlueshells.push(entry);
+  savePending(pendingBlueshells);
+  res.json({ ok: true, pending: pendingBlueshells });
+});
+
+app.post('/api/blueshell/pending/:id/complete', requireAuth, (req, res) => {
+  const entry = pendingBlueshells.find(p => p.id === req.params.id);
+  if (!entry) return res.status(404).json({ error: 'Esa blue shell pendiente ya no existe' });
+  if (entry.to !== req.displayName) {
+    return res.status(403).json({ error: 'Solo la víctima puede marcar esta blue shell como hecha' });
+  }
+
+  pendingBlueshells = pendingBlueshells.filter(p => p.id !== entry.id);
+  savePending(pendingBlueshells);
+  res.json({ ok: true, pending: pendingBlueshells });
 });
 
 const PORT = process.env.PORT || 3000;
