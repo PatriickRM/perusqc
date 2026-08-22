@@ -366,7 +366,97 @@
   .history-row__punishment { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.5px; }
   .history-row__time { margin-left: auto; font-family: var(--mono); font-size: 0.68rem; color: var(--text-faint); }
 
+  /* ---------- Contador de Blue Shells ---------- */
+  .counter { padding-top: 10px; }
+  .counter-note {
+    font-family: var(--mono); font-size: 0.72rem; color: var(--text-faint);
+    margin: -8px 0 18px;
+  }
+  .counter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 14px;
+  }
+  .counter-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.15s;
+  }
+  .counter-card:hover { transform: translateY(-2px); }
+  .counter-card--leader {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px rgba(242, 193, 78, 0.18), 0 0 28px rgba(242, 193, 78, 0.12);
+  }
+  .counter-card--leader::before {
+    content: '👑';
+    position: absolute;
+    top: 10px; right: 12px;
+    font-size: 1rem;
+    filter: drop-shadow(0 0 6px rgba(242, 193, 78, 0.6));
+  }
+  .counter-card__top { display: flex; align-items: center; gap: 12px; }
+  .counter-card__avatar {
+    width: 46px; height: 46px; border-radius: 11px; object-fit: cover;
+    border: 1px solid var(--border); background: #201415; flex-shrink: 0;
+  }
+  .counter-card__name {
+    font-weight: 700; font-size: 0.95rem; line-height: 1.2;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .counter-card__total {
+    display: flex; align-items: baseline; gap: 5px; margin-top: 2px;
+  }
+  .counter-card__total-num {
+    font-family: var(--display); font-size: 1.7rem; letter-spacing: 1px; color: var(--accent);
+    transition: color 0.2s;
+  }
+  .counter-card--leader .counter-card__total-num { color: var(--gold); }
+  .counter-card__total-label {
+    font-family: var(--mono); font-size: 0.6rem; letter-spacing: 1.5px; text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .counter-card__bar {
+    display: flex; height: 8px; border-radius: 999px; overflow: hidden; background: #241618;
+  }
+  .counter-card__bar-seg { height: 100%; transition: width 0.3s ease; }
+  .counter-card__breakdown {
+    display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .counter-chip {
+    display: flex; align-items: center; gap: 5px;
+    font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.3px;
+    padding: 4px 8px; border-radius: 999px;
+    background: var(--bg-plate); border: 1px solid var(--border-soft);
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+  .counter-chip--zero { opacity: 0.4; }
+  .counter-chip__dot { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+  .counter-chip__count { color: var(--text); font-weight: 700; }
+  .counter-card__pop {
+    position: absolute; inset: 0;
+    border-radius: 16px;
+    box-shadow: 0 0 0 2px var(--accent);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .counter-card--bump .counter-card__pop {
+    animation: counterBump 0.6s ease;
+  }
+  @keyframes counterBump {
+    0% { opacity: 0.9; box-shadow: 0 0 0 2px var(--accent), 0 0 26px rgba(255,59,78,0.4); }
+    100% { opacity: 0; box-shadow: 0 0 0 2px var(--accent), 0 0 0 rgba(255,59,78,0); }
+  }
+
   #status-msg { text-align: center; color: var(--text-dim); padding: 24px; font-family: var(--mono); font-size: 0.85rem; }
+  #counter-status { text-align: center; color: var(--text-dim); padding: 24px 0; font-family: var(--mono); font-size: 0.85rem; }
 
   @media (max-width: 560px) {
     .player-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
@@ -449,6 +539,13 @@
     </div>
   </section>
 
+  <section class="step counter" id="step-counter">
+    <div class="step__label"><span class="num">★</span> Contador de Blue Shells</div>
+    <div class="counter-note">Se guarda en el servidor, así que sobrevive aunque cierres o recargues la página.</div>
+    <div id="counter-status">Cargando contador...</div>
+    <div class="counter-grid" id="counter-grid" style="display:none"></div>
+  </section>
+
   <section class="step history" id="step-history">
     <div class="step__label"><span class="num">#</span> Historial de esta sesión</div>
     <div class="history-list" id="history-list">
@@ -461,6 +558,8 @@
 <footer>SoloPeruQChallenge · Blue Shell no es opcional</footer>
 
 <script>
+const API_BASE = 'https://perusqc-production.up.railway.app';
+
 const PRIZES = [
   { key: 'AUTOFILL',    label: 'AUTOFILL',            short: 'Autofill',            color: 'var(--accent)',   glow: 'rgba(255, 59, 78, 0.4)'  },
   { key: 'SIN_FLASH',   label: 'SIN FLASH',           short: 'Sin flash',           color: 'var(--bs-flash)', glow: 'rgba(92, 201, 255, 0.4)' },
@@ -473,6 +572,10 @@ let selectedPlayer = null;
 let cumulativeRotation = 0;
 let spinning = false;
 let history = [];
+
+// Cache local del contador (se llena desde /api/blueshell/counts y se
+// actualiza al instante en cada spin sin esperar el round-trip al server).
+let counterCounts = {};
 
 const statusMsg   = document.getElementById('status-msg');
 const grid        = document.getElementById('player-grid');
@@ -487,6 +590,8 @@ const champRollEl    = document.getElementById('champ-roll');
 const champStripEl   = document.getElementById('champ-strip');
 const rollChampBtn   = document.getElementById('roll-champ-btn');
 const champFinalEl   = document.getElementById('champ-roll-final');
+const counterStatusEl = document.getElementById('counter-status');
+const counterGridEl   = document.getElementById('counter-grid');
 
 let championList = null;
 
@@ -513,7 +618,7 @@ function champItemHtml(c) {
 
 async function loadPlayers() {
   try {
-    const res = await fetch('https://perusqc-production.up.railway.app/api/leaderboard');
+    const res = await fetch(`${API_BASE}/api/leaderboard`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error desconocido');
 
@@ -598,6 +703,107 @@ function renderHistory() {
   `).join('');
 }
 
+/* ---------- Contador de Blue Shells ---------- */
+
+async function loadCounter() {
+  try {
+    const res = await fetch(`${API_BASE}/api/blueshell/counts`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error desconocido');
+    counterCounts = data.counts || {};
+    counterStatusEl.style.display = 'none';
+    counterGridEl.style.display = '';
+    renderCounter();
+  } catch (err) {
+    counterStatusEl.textContent = 'Error cargando el contador: ' + err.message;
+  }
+}
+
+function renderCounter(bumpedPlayer) {
+  // Combina el conteo con la lista de jugadores para que salga el avatar
+  // aunque a alguien todavía no le haya tocado ninguna blue shell.
+  const rows = players.map(p => {
+    const c = counterCounts[p.displayName] || { total: 0, byPrize: {} };
+    return { displayName: p.displayName, avatar: p.avatar, total: c.total || 0, byPrize: c.byPrize || {} };
+  });
+  rows.sort((a, b) => b.total - a.total);
+  const maxTotal = rows.length ? rows[0].total : 0;
+
+  counterGridEl.innerHTML = rows.map(r => {
+    const isLeader = r.total > 0 && r.total === maxTotal;
+    const isBumped = r.displayName === bumpedPlayer;
+    const barSegs = PRIZES.map(prize => {
+      const n = r.byPrize[prize.key] || 0;
+      const pct = r.total > 0 ? (n / r.total) * 100 : 0;
+      return `<span class="counter-card__bar-seg" style="width:${pct}%; background:${prize.color}"></span>`;
+    }).join('');
+    const chips = PRIZES.map(prize => {
+      const n = r.byPrize[prize.key] || 0;
+      return `
+        <span class="counter-chip ${n === 0 ? 'counter-chip--zero' : ''}">
+          <span class="counter-chip__dot" style="background:${prize.color}"></span>
+          ${prize.short}<span class="counter-chip__count">&nbsp;${n}</span>
+        </span>
+      `;
+    }).join('');
+
+    return `
+      <div class="counter-card ${isLeader ? 'counter-card--leader' : ''} ${isBumped ? 'counter-card--bump' : ''}">
+        <div class="counter-card__pop"></div>
+        <div class="counter-card__top">
+          <img class="counter-card__avatar" src="${r.avatar || ''}" onerror="this.style.visibility='hidden'">
+          <div style="min-width:0; flex:1;">
+            <div class="counter-card__name">${r.displayName}</div>
+            <div class="counter-card__total">
+              <span class="counter-card__total-num">${r.total}</span>
+              <span class="counter-card__total-label">🐢 shells</span>
+            </div>
+          </div>
+        </div>
+        <div class="counter-card__bar">${r.total > 0 ? barSegs : ''}</div>
+        <div class="counter-card__breakdown">${chips}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function recordBlueShell(displayName, prizeKey) {
+  // Actualiza la tarjeta al instante (sin esperar al servidor) y de paso
+  // dispara la animación de "acaba de sumar uno".
+  if (!counterCounts[displayName]) counterCounts[displayName] = { total: 0, byPrize: {} };
+  counterCounts[displayName].total = (counterCounts[displayName].total || 0) + 1;
+  counterCounts[displayName].byPrize[prizeKey] = (counterCounts[displayName].byPrize[prizeKey] || 0) + 1;
+  renderCounter(displayName);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/blueshell/record`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName, prizeKey }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || 'Error desconocido');
+    }
+  } catch (err) {
+    // No revertimos el número en pantalla para no confundir al que acaba de
+    // recibir su castigo; solo lo avisamos en consola para depurar.
+    console.error('No se pudo guardar el conteo en el servidor:', err.message);
+  }
+}
+
+function recordChampionOnLastEntry(displayName, championName) {
+  // Solo anota el nombre del campeón sorteado; el conteo del premio
+  // "Campeón aleatorio" ya se guardó en recordBlueShell al girar la ruleta.
+  fetch(`${API_BASE}/api/blueshell/champion`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ displayName, championName }),
+  }).catch(() => {});
+}
+
+/* ---------- Ruleta ---------- */
+
 function spin() {
   if (spinning || !selectedPlayer) return;
   spinning = true;
@@ -641,6 +847,7 @@ function revealResult(prize) {
   resultEl.style.animation = '';
   spawnConfetti(prize.color);
   const entry = addHistoryEntry(selectedPlayer.displayName, prize);
+  recordBlueShell(selectedPlayer.displayName, prize.key);
 
   // Si tocó campeón aleatorio, prepara el girador de campeones (segunda vuelta)
   if (prize.key === 'RANDOM_CHAMP') {
@@ -707,6 +914,8 @@ async function rollChampion(historyEntry) {
     if (historyEntry) {
       historyEntry.champion = winner.name;
       renderHistory();
+      // guarda el nombre del campeón asociado al último registro de este jugador
+      recordChampionOnLastEntry(historyEntry.playerName, winner.name);
     }
   };
   champStripEl.addEventListener('transitionend', onDone);
@@ -728,7 +937,7 @@ document.getElementById('change-player-btn').addEventListener('click', () => {
   document.getElementById('step-players').scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
-loadPlayers();
+loadPlayers().then(loadCounter);
 </script>
 </body>
 </html>

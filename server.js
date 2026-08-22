@@ -4,6 +4,7 @@
 // desde /api/live, para no golpear el spectator API en cada refresh de la tabla.
 // La API key vive solo en el backend.
 
+const fs = require('fs');
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
@@ -11,6 +12,7 @@ const cors = require('cors');
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
+app.use(express.json()); // necesario para leer el body de POST /api/blueshell/record
 
 const RIOT_API_KEY = process.env.RIOT_API_KEY;
 if (!RIOT_API_KEY) {
@@ -283,6 +285,85 @@ app.get('/api/live', async (_req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ---------- Contador de Blue Shell ----------
+// Guarda cuántas veces le tocó cada castigo a cada jugador. Se persiste en un
+// archivo JSON junto al server para que sobreviva a reinicios del proceso.
+// Nota: si el hosting hace un redeploy con filesystem limpio (algunos free tiers
+// de Railway lo hacen), este archivo se resetea. Si eso pasa seguido, lo ideal
+// es mover esto a una tablita en una base de datos real más adelante.
+const BLUESHELL_KEYS = ['AUTOFILL', 'SIN_FLASH', 'RANDOM_CHAMP', 'SIN_BOTAS'];
+const BLUESHELL_FILE = path.join(__dirname, 'blueshell-counts.json');
+
+function emptyBlueshellEntry() {
+  const byPrize = {};
+  BLUESHELL_KEYS.forEach(k => { byPrize[k] = 0; });
+  return { total: 0, byPrize };
+}
+
+function loadBlueshellCounts() {
+  try {
+    return JSON.parse(fs.readFileSync(BLUESHELL_FILE, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function saveBlueshellCounts(counts) {
+  try {
+    fs.writeFileSync(BLUESHELL_FILE, JSON.stringify(counts, null, 2));
+  } catch (err) {
+    console.error('No se pudo guardar blueshell-counts.json:', err.message);
+  }
+}
+
+let blueshellCounts = loadBlueshellCounts();
+
+app.get('/api/blueshell/counts', (_req, res) => {
+  res.json({ counts: blueshellCounts });
+});
+
+app.post('/api/blueshell/record', (req, res) => {
+  const { displayName, prizeKey } = req.body || {};
+
+  if (typeof displayName !== 'string' || !displayName.trim()) {
+    return res.status(400).json({ error: 'Falta displayName' });
+  }
+  if (!BLUESHELL_KEYS.includes(prizeKey)) {
+    return res.status(400).json({ error: 'prizeKey inválido' });
+  }
+
+  if (!blueshellCounts[displayName]) {
+    blueshellCounts[displayName] = emptyBlueshellEntry();
+  }
+  const entry = blueshellCounts[displayName];
+  entry.total += 1;
+  entry.byPrize[prizeKey] = (entry.byPrize[prizeKey] || 0) + 1;
+  entry.lastAt = Date.now();
+
+  saveBlueshellCounts(blueshellCounts);
+  res.json({ ok: true, entry });
+});
+
+// Solo anota qué campeón le tocó en el último "Campeón aleatorio" — no suma
+// al conteo (eso ya lo hizo /api/blueshell/record cuando cayó ese premio).
+app.post('/api/blueshell/champion', (req, res) => {
+  const { displayName, championName } = req.body || {};
+
+  if (typeof displayName !== 'string' || !displayName.trim()) {
+    return res.status(400).json({ error: 'Falta displayName' });
+  }
+  if (typeof championName !== 'string' || !championName.trim()) {
+    return res.status(400).json({ error: 'Falta championName' });
+  }
+
+  if (!blueshellCounts[displayName]) {
+    blueshellCounts[displayName] = emptyBlueshellEntry();
+  }
+  blueshellCounts[displayName].lastChampion = championName;
+  saveBlueshellCounts(blueshellCounts);
+  res.json({ ok: true, entry: blueshellCounts[displayName] });
 });
 
 const PORT = process.env.PORT || 3000;
