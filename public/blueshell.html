@@ -502,43 +502,32 @@
   }
   .logout-btn:hover { color: var(--text); border-color: var(--text-dim); }
 
-  .throw-box { margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border); }
-  .throw-box__label { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 1px; color: var(--text-dim); margin-bottom: 10px; }
-  .throw-box__row { display: flex; gap: 10px; flex-wrap: wrap; }
-  .throw-box__row select {
-    flex: 1; min-width: 140px;
-    background: var(--bg-plate); border: 1px solid var(--border);
-    border-radius: 10px; padding: 10px 14px; color: var(--text);
-    font-family: var(--body); font-size: 0.88rem;
+  .account-hint {
+    margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border);
+    font-family: var(--mono); font-size: 0.74rem; color: var(--text-dim);
   }
-  .throw-btn {
-    font-family: var(--display); font-size: 0.95rem; letter-spacing: 1px; color: #0a0708;
-    background: linear-gradient(135deg, var(--bs-flash), #a7e4ff);
-    border: none; border-radius: 10px; padding: 10px 22px; cursor: pointer;
-    transition: filter 0.15s;
-  }
-  .throw-btn:hover { filter: brightness(1.06); }
-  .throw-msg { font-family: var(--mono); font-size: 0.76rem; color: var(--text-dim); margin-top: 10px; min-height: 1em; }
 
   /* ---------- Blue shells pendientes ---------- */
-  .pending-list { display: flex; flex-direction: column; gap: 8px; }
+  .pending-list { display: flex; flex-direction: column; gap: 10px; }
   .pending-row {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    display: flex; flex-direction: column; gap: 6px;
     background: var(--bg-plate);
     border: 1px solid var(--border-soft);
     border-radius: 10px;
-    padding: 10px 14px;
-    font-size: 0.86rem;
+    padding: 12px 14px;
     animation: resultPop 0.35s ease both;
   }
-  .pending-row__text b { color: var(--text); }
-  .pending-row__time { font-family: var(--mono); font-size: 0.68rem; color: var(--text-faint); }
+  .pending-row__main { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .pending-row__victim { font-family: var(--display); font-size: 1.1rem; letter-spacing: 0.5px; color: var(--text); }
+  .pending-row__punishment { font-size: 0.85rem; color: var(--text-dim); }
+  .pending-row__sub { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .pending-row__meta { font-family: var(--mono); font-size: 0.7rem; color: var(--text-faint); }
+  .pending-row__meta b { color: var(--accent); }
   .pending-row__done-btn {
-    margin-left: auto;
     font-family: var(--mono); font-size: 0.72rem; color: var(--win);
     background: rgba(56, 217, 135, 0.1); border: 1px solid var(--win);
     border-radius: 999px; padding: 6px 14px; cursor: pointer;
-    transition: filter 0.15s;
+    transition: filter 0.15s; align-self: flex-start;
   }
   .pending-row__done-btn:hover { filter: brightness(1.15); }
 
@@ -587,14 +576,7 @@
         <div class="account-bar__who">Conectado como <b id="account-name">—</b></div>
         <button class="logout-btn" id="logout-btn">Salir</button>
       </div>
-      <div class="throw-box">
-        <div class="throw-box__label">Tirale una Blue Shell a:</div>
-        <div class="throw-box__row">
-          <select id="throw-target"></select>
-          <button class="throw-btn" id="throw-btn">🐢 TIRAR</button>
-        </div>
-        <div class="throw-msg" id="throw-msg"></div>
-      </div>
+      <div class="account-hint">Elegí un jugador abajo 👇 y girá la ruleta: el castigo va a quedar anotado en Blue Shells pendientes.</div>
     </div>
   </section>
 
@@ -922,6 +904,42 @@ function recordChampionOnLastEntry(displayName, championName) {
   }).catch(() => {});
 }
 
+/* ---------- Blue Shells pendientes (queda anotado el resultado de la ruleta) ---------- */
+
+function queuePendingPunishment(prize) {
+  if (!currentUser || !selectedPlayer) return Promise.resolve(null);
+  return fetch(`${API_BASE}/api/blueshell/throw`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ to: selectedPlayer.displayName, prizeKey: prize.key, prizeLabel: prize.label }),
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (!data.ok) return null;
+      lastPendingList = data.pending || [];
+      renderPending(lastPendingList);
+      return data.id;
+    })
+    .catch(() => null);
+}
+
+function updatePendingChampion(pendingId, championName) {
+  if (!pendingId) return;
+  fetch(`${API_BASE}/api/blueshell/pending/${pendingId}/champion`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
+    body: JSON.stringify({ championName }),
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.ok) {
+        lastPendingList = data.pending || [];
+        renderPending(lastPendingList);
+      }
+    })
+    .catch(() => {});
+}
+
 /* ---------- Ruleta ---------- */
 
 function spin() {
@@ -968,6 +986,10 @@ function revealResult(prize) {
   spawnConfetti(prize.color);
   const entry = addHistoryEntry(selectedPlayer.displayName, prize);
   recordBlueShell(selectedPlayer.displayName, prize.key);
+
+  // Si hay una cuenta logueada, esto queda anotado como castigo pendiente
+  // (lo ve el jugador afectado en "Blue Shells pendientes").
+  queuePendingPunishment(prize).then(id => { entry.pendingId = id; });
 
   // Si tocó campeón aleatorio, prepara el girador de campeones (segunda vuelta)
   if (prize.key === 'RANDOM_CHAMP') {
@@ -1036,6 +1058,8 @@ async function rollChampion(historyEntry) {
       renderHistory();
       // guarda el nombre del campeón asociado al último registro de este jugador
       recordChampionOnLastEntry(historyEntry.playerName, winner.name);
+      // completa el dato del campeón en la blue shell pendiente ya creada
+      updatePendingChampion(historyEntry.pendingId, winner.name);
     }
   };
   champStripEl.addEventListener('transitionend', onDone);
@@ -1067,19 +1091,10 @@ function authHeaders() {
   return currentToken ? { 'x-spqc-token': currentToken } : {};
 }
 
-function populateThrowTargets() {
-  const sel = document.getElementById('throw-target');
-  sel.innerHTML = players
-    .filter(p => p.displayName !== currentUser)
-    .map(p => `<option value="${p.displayName}">${p.displayName}</option>`)
-    .join('');
-}
-
 function showLoggedIn() {
   document.getElementById('account-logged-out').style.display = 'none';
   document.getElementById('account-logged-in').style.display = '';
   document.getElementById('account-name').textContent = currentUser;
-  populateThrowTargets();
   renderPending(lastPendingList);
 }
 
@@ -1143,27 +1158,6 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   showLoggedOut();
 });
 
-document.getElementById('throw-btn').addEventListener('click', async () => {
-  const sel = document.getElementById('throw-target');
-  const msgEl = document.getElementById('throw-msg');
-  msgEl.textContent = '';
-  if (!sel.value) return;
-  try {
-    const res = await fetch(`${API_BASE}/api/blueshell/throw`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...authHeaders() },
-      body: JSON.stringify({ to: sel.value }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Error al tirar la blue shell');
-    msgEl.textContent = `🐢 ¡Le tiraste una Blue Shell a ${sel.value}!`;
-    lastPendingList = data.pending || [];
-    renderPending(lastPendingList);
-  } catch (err) {
-    msgEl.textContent = err.message;
-  }
-});
-
 /* ---------- Blue Shells pendientes ---------- */
 
 function timeAgo(ts) {
@@ -1176,6 +1170,14 @@ function timeAgo(ts) {
   return `hace ${diffD} d`;
 }
 
+function pendingPunishmentText(p) {
+  if (!p.prizeLabel) return 'Blue Shell';
+  if (p.prizeKey === 'RANDOM_CHAMP') {
+    return p.champion ? `Campeón aleatorio: ${p.champion}` : 'Campeón aleatorio (sorteando...)';
+  }
+  return p.prizeLabel;
+}
+
 function renderPending(list) {
   const el = document.getElementById('pending-list');
   if (!list.length) {
@@ -1184,9 +1186,14 @@ function renderPending(list) {
   }
   el.innerHTML = list.slice().reverse().map(p => `
     <div class="pending-row">
-      <span class="pending-row__text"><b>${p.from}</b> le tiró una 🐢 a <b>${p.to}</b></span>
-      <span class="pending-row__time">${timeAgo(p.createdAt)}</span>
-      ${currentUser === p.to ? `<button class="pending-row__done-btn" onclick="completePending('${p.id}')">✅ Ya la hice</button>` : ''}
+      <div class="pending-row__main">
+        <span class="pending-row__victim">${p.to}</span>
+        <span class="pending-row__punishment">Castigo pendiente: ${pendingPunishmentText(p)}</span>
+      </div>
+      <div class="pending-row__sub">
+        <span class="pending-row__meta">Lanzado por <b>${p.from}</b> 🐢 · ${timeAgo(p.createdAt)}</span>
+        ${currentUser === p.to ? `<button class="pending-row__done-btn" onclick="completePending('${p.id}')">✅ Ya la hice</button>` : ''}
+      </div>
     </div>
   `).join('');
 }

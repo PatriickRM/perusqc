@@ -489,7 +489,7 @@ app.get('/api/blueshell/pending', (_req, res) => {
 });
 
 app.post('/api/blueshell/throw', requireAuth, (req, res) => {
-  const { to } = req.body || {};
+  const { to, prizeKey, prizeLabel } = req.body || {};
   const target = ACCOUNTS.find(a => a.displayName === to);
   if (!target) return res.status(400).json({ error: 'Rival inválido' });
   if (target.displayName === req.displayName) {
@@ -500,10 +500,30 @@ app.post('/api/blueshell/throw', requireAuth, (req, res) => {
     id: crypto.randomUUID(),
     from: req.displayName,
     to: target.displayName,
+    prizeKey: prizeKey || null,
+    prizeLabel: prizeLabel || null,
+    champion: null,
     createdAt: Date.now(),
   };
   pendingBlueshells.push(entry);
   savePending(pendingBlueshells);
+  res.json({ ok: true, pending: pendingBlueshells, id: entry.id });
+});
+
+// Se llama después del sorteo de campeón (solo aplica al premio "Campeón
+// aleatorio"), para completar el dato en la blue shell pendiente que ya se
+// había creado al girar la ruleta.
+app.post('/api/blueshell/pending/:id/champion', requireAuth, (req, res) => {
+  const { championName } = req.body || {};
+  const entry = pendingBlueshells.find(p => p.id === req.params.id);
+  if (!entry) return res.status(404).json({ error: 'Esa blue shell pendiente ya no existe' });
+  if (entry.from !== req.displayName) {
+    return res.status(403).json({ error: 'Solo quien tiró la blue shell puede definir el campeón' });
+  }
+  if (typeof championName === 'string' && championName.trim()) {
+    entry.champion = championName.trim();
+    savePending(pendingBlueshells);
+  }
   res.json({ ok: true, pending: pendingBlueshells });
 });
 
