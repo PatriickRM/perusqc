@@ -92,13 +92,6 @@ const ACCOUNTS = [
     role: 'JUNGLA',
     avatar: 'https://static.wikia.nocookie.net/rickandmorty/images/e/ee/Morty501.png/revision/latest/thumbnail/width/360/height/450?cb=20210827150137'
   },
-  {
-    displayName: 'Gabriela is Aphrodite#ShyBlue',
-    gameName: 'megazeldris32',
-    tagLine: 'LAN',
-    role: 'TOP',
-    avatar: 'https://static.wikia.nocookie.net/rickandmorty/images/e/ee/Morty501.png/revision/latest/thumbnail/width/360/height/450?cb=20210827150137'
-  },
 ];
 
 const TIER_VALUE = {
