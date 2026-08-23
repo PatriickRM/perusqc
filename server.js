@@ -218,7 +218,30 @@ app.get('/api/leaderboard', async (_req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+const RANK_CACHE_TTL_MS = 15 * 60 * 1000;
+const rankCache = new Map(); // puuid -> { tier, rank, leaguePoints, at }
 
+async function getRankForPuuid(puuid) {
+  const cached = rankCache.get(puuid);
+  if (cached && Date.now() - cached.at < RANK_CACHE_TTL_MS) return cached;
+
+  let result = { tier: 'UNRANKED', rank: '', leaguePoints: 0 };
+  try {
+    const entries = await riotFetch(
+      `https://${PLATFORM}.api.riotgames.com/lol/league/v4/entries/by-puuid/${puuid}`
+    );
+    const ranked = (entries || []).find(e => e.queueType === 'RANKED_SOLO_5x5');
+    if (ranked) {
+      result = { tier: ranked.tier, rank: ranked.rank, leaguePoints: ranked.leaguePoints };
+    }
+  } catch (err) {
+    // si falla, se cachea igual como UNRANKED para no reintentar en cada refresh
+  }
+
+  const entry = { ...result, at: Date.now() };
+  rankCache.set(puuid, entry);
+  return entry;
+}
 // ---------- Estado en vivo: SOLO se consulta acá, cuando alguien pide /api/live ----------
 async function loadLiveStatus(player) {
   if (!player.puuid) return { inGame: false };
@@ -234,15 +257,22 @@ async function loadLiveStatus(player) {
     .sort((a, b) => a.pickTurn - b.pickTurn)
     .map(b => ({ championId: b.championId, teamId: b.teamId, pickTurn: b.pickTurn }));
 
-  // Participantes completos (10) para poder mostrar la partida entera en /en-vivo.
-  // riotId viene directo del endpoint spectator-v5; si Riot no lo manda para algún
-  // participante, el cliente cae de vuelta a "Invocador".
   const participants = (liveGame.participants || []).map(p => ({
+    puuid: p.puuid,
     riotId: p.riotId || null,
     championId: p.championId,
     teamId: p.teamId,
     spell1Id: p.spell1Id,
     spell2Id: p.spell2Id,
+  }));
+
+  // Trae el elo de los 10 participantes (con caché por puuid, así que en
+  // partidas repetidas o refrescos seguidos casi no pega a la Riot API).
+  await Promise.all(participants.map(async p => {
+    const rank = await getRankForPuuid(p.puuid);
+    p.tier = rank.tier;
+    p.division = rank.rank;
+    p.leaguePoints = rank.leaguePoints;
   }));
 
   return {
