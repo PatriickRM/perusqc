@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Historial — SPQC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .page-head { text-align: center; padding: 44px 20px 8px; }
+  .page-head__eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 3px; color: var(--text-dim); }
+  .page-head__main { font-family: var(--display); font-size: clamp(2.2rem, 8vw, 3rem); letter-spacing: 2px; color: var(--accent); text-shadow: 0 0 34px var(--accent-glow); margin: 6px 0 2px; }
+  .page-head__sub { color: var(--text-dim); font-size: 0.9rem; }
+
+  .mh-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 18px;
+  }
+
+  .mh-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 16px 14px;
+  }
+  .mh-card__top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .mh-card__avatar { width: 40px; height: 40px; border-radius: 10px; border: 1px solid var(--border); object-fit: cover; background: #201415; flex-shrink: 0; }
+  .mh-card__name { font-weight: 700; font-size: 0.98rem; }
+  .mh-card__record { margin-left: auto; font-family: var(--mono); font-size: 0.72rem; color: var(--text-dim); white-space: nowrap; }
+  .mh-card__record .w { color: var(--win); font-weight: 700; }
+  .mh-card__record .l { color: var(--loss); font-weight: 700; }
+
+  .mh-list { display: flex; flex-direction: column; gap: 6px; }
+
+  .mh-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--bg-plate, var(--bg-card-hover));
+    border-left: 3px solid var(--loss);
+  }
+  .mh-row--win { border-left-color: var(--win); }
+
+  .mh-row__champ { width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); flex-shrink: 0; background: #201415; }
+
+  .mh-row__body { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .mh-row__top { display: flex; align-items: baseline; gap: 8px; }
+  .mh-row__champ-name { font-size: 0.84rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mh-row__result {
+    font-family: var(--mono); font-size: 0.62rem; font-weight: 700; letter-spacing: 0.5px;
+    text-transform: uppercase; color: var(--loss);
+  }
+  .mh-row--win .mh-row__result { color: var(--win); }
+  .mh-row__meta { display: flex; gap: 8px; flex-wrap: wrap; font-family: var(--mono); font-size: 0.66rem; color: var(--text-faint); }
+  .mh-row__kda { color: var(--text-dim); }
+
+  .mh-row__time { margin-left: auto; font-family: var(--mono); font-size: 0.64rem; color: var(--text-faint); white-space: nowrap; flex-shrink: 0; }
+
+  .mh-empty { font-family: var(--mono); font-size: 0.8rem; color: var(--text-faint); padding: 8px 4px; }
+  .mh-error { font-family: var(--mono); font-size: 0.78rem; color: var(--accent); padding: 8px 4px; }
+
+  #status-msg { text-align: center; color: var(--text-dim); padding: 24px; font-family: var(--mono); font-size: 0.85rem; }
+
+  @media (max-width: 560px) {
+    .mh-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav__inner">
+    <a class="topnav__brand" href="index.html">SPQC</a>
+    <div class="topnav__links">
+      <a href="index.html">Tabla</a>
+      <a href="live.html">En vivo</a>
+      <a href="blueshell.html">Blue Shell</a>
+      <a href="matches.html" class="active">Historial</a>
+      <a href="rules.html">Reglas</a>
+    </div>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="page-head__eyebrow">Historial de partidas</div>
+  <div class="page-head__main">ÚLTIMAS 5 GAMES</div>
+  <div class="page-head__sub">Las partidas más recientes de cada jugador del reto</div>
+</header>
+
+<main class="wrap" style="padding-top: 30px;">
+  <div id="status-msg">Cargando historial...</div>
+  <div class="mh-grid" id="mh-grid" style="display:none"></div>
+</main>
+
+<footer>Datos vía Riot Games API · El historial se refresca cada pocos minutos</footer>
+
+<script>
+const API_BASE = 'https://perusqc-production.up.railway.app';
+
+const QUEUE_NAME = {
+  420: 'Solo/Dúo', 440: 'Flexible', 400: 'Normal (Draft)', 430: 'Normal (Ciego)',
+  450: 'ARAM', 490: 'Normal (Rápido)', 700: 'Clash', 900: 'URF', 1700: 'Arena',
+};
+
+let championById = null;
+async function getChampionMap() {
+  if (championById) return championById;
+  try {
+    const versions = await (await fetch('https://ddragon.leagueoflegends.com/api/versions.json')).json();
+    const version = versions[0];
+    const data = await (await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/es_MX/champion.json`)).json();
+    championById = { version, map: {} };
+    Object.values(data.data).forEach(c => { championById.map[c.key] = { name: c.name, id: c.id }; });
+  } catch {
+    championById = { version: null, map: {} };
+  }
+  return championById;
+}
+function championIconUrl(version, champId) {
+  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${champId}.png`;
+}
+
+function fmtDuration(seconds) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function timeAgo(ts) {
+  const diffMin = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (diffMin < 60) return `hace ${diffMin} min`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `hace ${diffH} h`;
+  const diffD = Math.round(diffH / 24);
+  return `hace ${diffD} d`;
+}
+
+function matchRowHtml(m, champData) {
+  const champ = champData.map[m.championId];
+  const src = champ && champData.version ? championIconUrl(champData.version, champ.id) : '';
+  const champName = champ ? champ.name : `Campeón ${m.championId}`;
+  const queueLabel = QUEUE_NAME[m.queueId] || 'Otra cola';
+
+  return `
+    <div class="mh-row ${m.win ? 'mh-row--win' : ''}">
+      <img class="mh-row__champ" src="${src}" onerror="this.style.visibility='hidden'">
+      <div class="mh-row__body">
+        <div class="mh-row__top">
+          <span class="mh-row__champ-name">${champName}</span>
+          <span class="mh-row__result">${m.win ? 'Victoria' : 'Derrota'}</span>
+        </div>
+        <div class="mh-row__meta">
+          <span class="mh-row__kda">${m.kills}/${m.deaths}/${m.assists}</span>
+          <span>${m.cs} CS</span>
+          <span>${queueLabel}</span>
+          <span>${fmtDuration(m.gameDurationSeconds)}</span>
+        </div>
+      </div>
+      <span class="mh-row__time">${timeAgo(m.gameCreation)}</span>
+    </div>
+  `;
+}
+
+function playerCardHtml(player, champData) {
+  const wins = player.matches.filter(m => m.win).length;
+  const losses = player.matches.length - wins;
+
+  let body;
+  if (player.error) {
+    body = `<div class="mh-error">No se pudo cargar: ${player.error}</div>`;
+  } else if (!player.matches.length) {
+    body = `<div class="mh-empty">Sin partidas recientes.</div>`;
+  } else {
+    body = `<div class="mh-list">${player.matches.map(m => matchRowHtml(m, champData)).join('')}</div>`;
+  }
+
+  return `
+    <div class="mh-card">
+      <div class="mh-card__top">
+        <img class="mh-card__avatar" src="${player.avatar || ''}" onerror="this.style.visibility='hidden'">
+        <div class="mh-card__name">${player.displayName}</div>
+        ${player.matches.length ? `<div class="mh-card__record"><span class="w">${wins}V</span> · <span class="l">${losses}D</span></div>` : ''}
+      </div>
+      ${body}
+    </div>
+  `;
+}
+
+async function load() {
+  const statusMsg = document.getElementById('status-msg');
+  const grid = document.getElementById('mh-grid');
+  try {
+    const res = await fetch(`${API_BASE}/api/matches`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error desconocido');
+
+    const champData = await getChampionMap();
+    statusMsg.style.display = 'none';
+    grid.style.display = '';
+    grid.innerHTML = data.players.map(p => playerCardHtml(p, champData)).join('');
+  } catch (err) {
+    statusMsg.textContent = 'Error: ' + err.message;
+  }
+}
+
+load();
+</script>
+</body>
+</html>

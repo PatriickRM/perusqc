@@ -315,6 +315,85 @@ app.get('/api/live', async (_req, res) => {
   }
 });
 
+// ---------- Historial de partidas (match-v5) ----------
+// Es la parte más "cara" en llamadas a la Riot API (1 para la lista de IDs +
+// 1 por cada partida), así que se cachea fuerte (10 min) y se arma en serie
+// con una pausa chiquita entre llamadas para no pisar los rate limits del
+// API key. Vive en su propio endpoint/caché, separado del leaderboard y del
+// live, para no hacerlos más lentos ni más pesados en llamadas a Riot.
+const MATCH_HISTORY_COUNT = 5;
+const MATCH_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
+let matchHistoryCache = { at: 0, data: null };
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function extractParticipant(match, puuid) {
+  const info = match.info;
+  const p = (info.participants || []).find(x => x.puuid === puuid);
+  if (!p) return null;
+  return {
+    matchId: match.metadata.matchId,
+    win: p.win,
+    championId: p.championId,
+    kills: p.kills,
+    deaths: p.deaths,
+    assists: p.assists,
+    cs: (p.totalMinionsKilled || 0) + (p.neutralMinionsKilled || 0),
+    queueId: info.queueId,
+    gameCreation: info.gameCreation,
+    gameDurationSeconds: info.gameDuration,
+  };
+}
+
+async function loadPlayerMatchHistory(player) {
+  if (!player.puuid) return { matches: [], error: 'Sin puuid' };
+  try {
+    const ids = await riotFetch(
+      `https://${CONTINENT}.api.riotgames.com/lol/match/v5/matches/by-puuid/${player.puuid}/ids?start=0&count=${MATCH_HISTORY_COUNT}`
+    );
+    if (!ids || !ids.length) return { matches: [] };
+
+    const matches = [];
+    for (const id of ids) {
+      const match = await riotFetch(`https://${CONTINENT}.api.riotgames.com/lol/match/v5/matches/${id}`);
+      await sleep(60); // pequeño respiro entre llamadas, para no pisar el rate limit
+      if (!match) continue;
+      const parsed = extractParticipant(match, player.puuid);
+      if (parsed) matches.push(parsed);
+    }
+    return { matches };
+  } catch (err) {
+    return { matches: [], error: err.message };
+  }
+}
+
+async function buildMatchHistory() {
+  // Reusa el leaderboard cacheado (puuid + avatar), no dispara llamadas extra.
+  const { data: leaderboard } = await getLeaderboard();
+  const players = leaderboard.filter(p => !p.error && p.puuid);
+
+  const result = [];
+  for (const p of players) {
+    const { matches, error } = await loadPlayerMatchHistory(p);
+    result.push({ displayName: p.displayName, avatar: p.avatar, matches, error });
+    await sleep(60);
+  }
+  return result;
+}
+
+app.get('/api/matches', async (_req, res) => {
+  try {
+    const now = Date.now();
+    if (matchHistoryCache.data && now - matchHistoryCache.at < MATCH_CACHE_TTL_MS) {
+      return res.json({ players: matchHistoryCache.data, cached: true });
+    }
+    const players = await buildMatchHistory();
+    matchHistoryCache = { at: now, data: players };
+    res.json({ players, cached: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 // ---------- Contador de Blue Shell ----------
 // Guarda cuántas veces le tocó cada castigo a cada jugador. Se persiste en un
 // archivo JSON junto al server para que sobreviva a reinicios del proceso.
