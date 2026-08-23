@@ -507,35 +507,163 @@
     font-family: var(--mono); font-size: 0.74rem; color: var(--text-dim);
   }
 
-  /* ---------- Blue shells pendientes ---------- */
-  .pending-list { display: flex; flex-direction: column; gap: 10px; }
-  .pending-row {
-    display: flex; flex-direction: column; gap: 6px;
+  /* ---------- Inventario de Blue Shells ---------- */
+  .my-inventory {
+    margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .my-inventory__label { font-size: 0.88rem; }
+  .my-inventory__label b { color: var(--bs-flash); }
+  .add-inventory-btn {
+    font-family: var(--display); font-size: 0.9rem; letter-spacing: 1px; color: #0a0708;
+    background: linear-gradient(135deg, var(--bs-flash), #a7e4ff);
+    border: none; border-radius: 10px; padding: 9px 18px; cursor: pointer;
+    transition: filter 0.15s, opacity 0.15s;
+  }
+  .add-inventory-btn:hover:not(:disabled) { filter: brightness(1.06); }
+  .add-inventory-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .inventory-msg { font-family: var(--mono); font-size: 0.76rem; color: var(--accent); margin-top: 8px; min-height: 1em; }
+
+  .inventory-list { display: flex; flex-direction: column; gap: 8px; }
+  .inventory-row {
+    display: flex; align-items: center; gap: 12px;
     background: var(--bg-plate);
     border: 1px solid var(--border-soft);
     border-radius: 10px;
-    padding: 12px 14px;
-    animation: resultPop 0.35s ease both;
+    padding: 8px 14px;
   }
-  .pending-row__main { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-  .pending-row__victim { font-family: var(--display); font-size: 1.1rem; letter-spacing: 0.5px; color: var(--text); }
-  .pending-row__punishment { font-size: 0.85rem; color: var(--text-dim); }
-  .pending-row__sub { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-  .pending-row__meta { font-family: var(--mono); font-size: 0.7rem; color: var(--text-faint); }
-  .pending-row__meta b { color: var(--accent); }
-  .pending-row__done-btn {
-    font-family: var(--mono); font-size: 0.72rem; color: var(--win);
-    background: rgba(56, 217, 135, 0.1); border: 1px solid var(--win);
-    border-radius: 999px; padding: 6px 14px; cursor: pointer;
-    transition: filter 0.15s; align-self: flex-start;
+  .inventory-row__avatar { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; border: 1px solid var(--border); background: #201415; flex-shrink: 0; }
+  .inventory-row__name { flex: 1; font-weight: 700; font-size: 0.86rem; min-width: 0; }
+  .inventory-row__pips { display: flex; gap: 5px; }
+  .inventory-pip {
+    width: 16px; height: 16px; border-radius: 5px;
+    background: var(--border-soft); border: 1px solid var(--border);
   }
-  .pending-row__done-btn:hover { filter: brightness(1.15); }
+  .inventory-pip--filled { background: var(--bs-flash); border-color: var(--bs-flash); box-shadow: 0 0 8px rgba(92, 201, 255, 0.5); }
+  .inventory-row__count { font-family: var(--mono); font-size: 0.72rem; color: var(--text-dim); min-width: 32px; text-align: right; }
+
+  .spin-hint { font-family: var(--mono); font-size: 0.76rem; color: var(--accent); text-align: center; min-height: 1em; }
+
+  /* ---------- Blue shells pendientes (tarjetas cuadradas) ---------- */
+  .pending-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+    gap: 16px;
+  }
+
+  .pending-tile {
+    position: relative;
+    aspect-ratio: 3 / 4;
+    border-radius: 18px;
+    overflow: hidden;
+    background: var(--bg-plate);
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    animation: resultPop 0.4s cubic-bezier(0.3, 1.6, 0.4, 1) both;
+    transition: transform 0.18s, box-shadow 0.18s;
+  }
+  .pending-tile:hover { transform: translateY(-4px); box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5); }
+
+  .pending-tile__visual {
+    position: relative;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 50% 30%, var(--tile-glow, rgba(255,59,78,0.22)), transparent 65%),
+      var(--tile-bg, var(--bg-card));
+  }
+  .pending-tile--champ .pending-tile__visual { background-size: cover; background-position: center 22%; }
+  .pending-tile__visual-tag {
+    position: absolute; top: 8px; left: 8px;
+    font-family: var(--mono); font-size: 0.6rem; letter-spacing: 1px; text-transform: uppercase;
+    color: #fff; background: rgba(10, 7, 8, 0.55); backdrop-filter: blur(2px);
+    padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.14);
+  }
+
+  /* ícono simple (autofill) */
+  .pending-icon-dice { width: 52%; height: 52%; color: var(--tile-c, var(--accent)); filter: drop-shadow(0 4px 10px rgba(0,0,0,0.4)); }
+
+  /* ícono con círculo de "prohibido" (flash / botas) */
+  .prohibited-badge {
+    position: relative;
+    width: 58%; aspect-ratio: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .prohibited-badge img {
+    width: 78%; height: 78%; object-fit: contain; border-radius: 10px;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+  }
+  .prohibited-badge::after {
+    content: '';
+    position: absolute; inset: 0;
+    border: 5px solid var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 0 2px rgba(10,7,8,0.5), 0 4px 14px rgba(255,59,78,0.35);
+  }
+  .prohibited-badge::before {
+    content: '';
+    position: absolute; top: 50%; left: -3%; right: -3%;
+    height: 5px; margin-top: -2.5px;
+    background: var(--accent);
+    transform: rotate(-45deg);
+    border-radius: 3px;
+    box-shadow: 0 0 0 2px rgba(10,7,8,0.5);
+  }
+
+  /* campeón sorteado / pendiente de sortear */
+  .champ-mystery {
+    font-family: var(--display); font-size: 2.6rem; color: var(--gold);
+    text-shadow: 0 0 20px rgba(242, 193, 78, 0.5);
+    animation: mysteryPulse 1.4s ease-in-out infinite;
+  }
+  @keyframes mysteryPulse {
+    0%, 100% { opacity: 0.55; transform: scale(0.94); }
+    50% { opacity: 1; transform: scale(1.04); }
+  }
+  .pending-tile__champ-name {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: 20px 10px 8px;
+    background: linear-gradient(180deg, transparent, rgba(10,7,8,0.92) 78%);
+    font-family: var(--display); font-size: 1rem; letter-spacing: 0.5px; color: var(--gold);
+    text-align: center;
+  }
+
+  .pending-tile__body {
+    padding: 10px 12px 12px;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border-soft);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .pending-tile__victim {
+    font-family: var(--display); font-size: 1.15rem; letter-spacing: 0.5px; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .pending-tile__label { font-size: 0.74rem; color: var(--tile-c, var(--text-dim)); font-weight: 700; }
+  .pending-tile__meta { font-family: var(--mono); font-size: 0.64rem; color: var(--text-faint); margin-top: 2px; }
+  .pending-tile__meta b { color: var(--accent); }
+
+  .pending-tile__done-btn {
+    margin-top: 8px;
+    font-family: var(--mono); font-size: 0.68rem; font-weight: 700; color: #0a0708;
+    background: linear-gradient(135deg, var(--win), #6dfcb0);
+    border: none; border-radius: 999px; padding: 7px 10px; cursor: pointer;
+    text-align: center;
+    transition: filter 0.15s, transform 0.15s;
+  }
+  .pending-tile__done-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
 
   @media (max-width: 560px) {
     .player-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+    .pending-list { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
   }
 </style>
 </head>
+
 <body>
 
 <nav class="topnav">
@@ -576,8 +704,18 @@
         <div class="account-bar__who">Conectado como <b id="account-name">—</b></div>
         <button class="logout-btn" id="logout-btn">Salir</button>
       </div>
+      <div class="my-inventory">
+        <span class="my-inventory__label">Tus blue shells: <b id="my-inventory-count">0/3</b></span>
+        <button class="add-inventory-btn" id="add-inventory-btn">+ Conseguir blue shell 🐢</button>
+      </div>
+      <div class="inventory-msg" id="inventory-msg"></div>
       <div class="account-hint">Elegí un jugador abajo 👇 y girá la ruleta: el castigo va a quedar anotado en Blue Shells pendientes.</div>
     </div>
+  </section>
+
+  <section class="pending-card" id="inventory-card">
+    <div class="card-title">🐢 Stock de Blue Shells por jugador</div>
+    <div class="inventory-list" id="inventory-list"></div>
   </section>
 
   <section class="pending-card" id="pending-card">
@@ -618,6 +756,7 @@
       </div>
 
       <button class="spin-btn" id="spin-btn" disabled>GIRAR RULETA</button>
+      <div class="spin-hint" id="spin-hint"></div>
 
       <div class="result" id="result">
         <div class="result__eyebrow">El castigo cayó sobre</div>
@@ -696,17 +835,20 @@ const counterStatusEl = document.getElementById('counter-status');
 const counterGridEl   = document.getElementById('counter-grid');
 
 let championList = null;
+let ddragonVersion = null;
 
 async function getChampionList() {
   if (championList) return championList;
   try {
     const versions = await (await fetch('https://ddragon.leagueoflegends.com/api/versions.json')).json();
     const version = versions[0];
+    ddragonVersion = version;
     const data = await (await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/es_MX/champion.json`)).json();
     championList = Object.values(data.data).map(c => ({
       id: c.id,
       name: c.name,
       icon: `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${c.id}.png`,
+      splash: `https://ddragon.leagueoflegends.com/cdn/img/champion/splash/${c.id}_0.jpg`,
     }));
   } catch (err) {
     championList = [];
@@ -716,6 +858,20 @@ async function getChampionList() {
 
 function champItemHtml(c) {
   return `<div class="champ-roll__item"><img src="${c.icon}" onerror="this.style.visibility='hidden'"><span>${c.name}</span></div>`;
+}
+
+// Íconos oficiales de Data Dragon para Flash y Botas, usados en las tarjetas
+// de "Blue Shells pendientes". Sin versión todavía cargada, usa un fallback
+// razonablemente reciente (se corrige solo apenas getChampionList() resuelve).
+function flashIconUrl() {
+  return `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion || '14.24.1'}/img/spell/SummonerFlash.png`;
+}
+function bootsIconUrl() {
+  return `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion || '14.24.1'}/img/item/1001.png`;
+}
+function findChampionByName(name) {
+  if (!championList || !name) return null;
+  return championList.find(c => c.name === name) || null;
 }
 
 async function loadPlayers() {
@@ -915,9 +1071,18 @@ function queuePendingPunishment(prize) {
   })
     .then(res => res.json())
     .then(data => {
-      if (!data.ok) return null;
+      if (!data.ok) {
+        document.getElementById('spin-hint').textContent = data.error || 'No se pudo registrar la blue shell.';
+        return null;
+      }
       lastPendingList = data.pending || [];
       renderPending(lastPendingList);
+      if (typeof data.inventory === 'number') {
+        myInventory = data.inventory;
+        inventoryCounts[currentUser] = myInventory;
+        updateMyInventoryUI();
+        renderInventory();
+      }
       return data.id;
     })
     .catch(() => null);
@@ -944,6 +1109,22 @@ function updatePendingChampion(pendingId, championName) {
 
 function spin() {
   if (spinning || !selectedPlayer) return;
+  const hintEl = document.getElementById('spin-hint');
+  hintEl.textContent = '';
+
+  if (!currentUser) {
+    hintEl.textContent = 'Iniciá sesión arriba para poder tirar 🐢';
+    return;
+  }
+  if (selectedPlayer.displayName === currentUser) {
+    hintEl.textContent = 'No podés tirarte una blue shell a vos mismo';
+    return;
+  }
+  if (myInventory <= 0) {
+    hintEl.textContent = 'No te quedan blue shells. Conseguí una arriba antes de tirar 🐢';
+    return;
+  }
+
   spinning = true;
   spinBtn.disabled = true;
   hideResult();
@@ -1086,6 +1267,9 @@ document.getElementById('change-player-btn').addEventListener('click', () => {
 let currentToken = localStorage.getItem('spqc_token');
 let currentUser = localStorage.getItem('spqc_displayName');
 let lastPendingList = [];
+let inventoryCounts = {};
+let myInventory = 0;
+const MAX_BLUESHELL_STOCK = 3; // debe coincidir con MAX_BLUESHELL_STOCK del server
 
 function authHeaders() {
   return currentToken ? { 'x-spqc-token': currentToken } : {};
@@ -1095,6 +1279,8 @@ function showLoggedIn() {
   document.getElementById('account-logged-out').style.display = 'none';
   document.getElementById('account-logged-in').style.display = '';
   document.getElementById('account-name').textContent = currentUser;
+  myInventory = inventoryCounts[currentUser] || 0;
+  updateMyInventoryUI();
   renderPending(lastPendingList);
 }
 
@@ -1158,6 +1344,67 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
   showLoggedOut();
 });
 
+/* ---------- Inventario de Blue Shells ---------- */
+
+function updateMyInventoryUI() {
+  const countEl = document.getElementById('my-inventory-count');
+  const btn = document.getElementById('add-inventory-btn');
+  if (countEl) countEl.textContent = `${myInventory}/${MAX_BLUESHELL_STOCK}`;
+  if (btn) btn.disabled = myInventory >= MAX_BLUESHELL_STOCK;
+}
+
+function renderInventory() {
+  const el = document.getElementById('inventory-list');
+  if (!el) return;
+  el.innerHTML = players.map(p => {
+    const count = inventoryCounts[p.displayName] || 0;
+    const pips = Array.from({ length: MAX_BLUESHELL_STOCK })
+      .map((_, i) => `<span class="inventory-pip ${i < count ? 'inventory-pip--filled' : ''}"></span>`)
+      .join('');
+    return `
+      <div class="inventory-row">
+        <img class="inventory-row__avatar" src="${p.avatar || ''}" onerror="this.style.visibility='hidden'">
+        <div class="inventory-row__name">${p.displayName}</div>
+        <div class="inventory-row__pips">${pips}</div>
+        <div class="inventory-row__count">${count}/${MAX_BLUESHELL_STOCK}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function loadInventory() {
+  try {
+    const res = await fetch(`${API_BASE}/api/blueshell/inventory`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error desconocido');
+    inventoryCounts = data.inventory || {};
+    myInventory = inventoryCounts[currentUser] || 0;
+    updateMyInventoryUI();
+    renderInventory();
+  } catch (err) {
+    console.error('No se pudo cargar el inventario de blue shells:', err.message);
+  }
+}
+
+document.getElementById('add-inventory-btn').addEventListener('click', async () => {
+  const msgEl = document.getElementById('inventory-msg');
+  msgEl.textContent = '';
+  try {
+    const res = await fetch(`${API_BASE}/api/blueshell/inventory/add`, {
+      method: 'POST',
+      headers: authHeaders(),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Error al conseguir la blue shell');
+    myInventory = data.inventory;
+    inventoryCounts[currentUser] = myInventory;
+    updateMyInventoryUI();
+    renderInventory();
+  } catch (err) {
+    msgEl.textContent = err.message;
+  }
+});
+
 /* ---------- Blue Shells pendientes ---------- */
 
 function timeAgo(ts) {
@@ -1170,12 +1417,73 @@ function timeAgo(ts) {
   return `hace ${diffD} d`;
 }
 
-function pendingPunishmentText(p) {
-  if (!p.prizeLabel) return 'Blue Shell';
-  if (p.prizeKey === 'RANDOM_CHAMP') {
-    return p.champion ? `Campeón aleatorio: ${p.champion}` : 'Campeón aleatorio (sorteando...)';
+function pendingVisual(p) {
+  const key = p.prizeKey;
+
+  if (key === 'AUTOFILL') {
+    return {
+      cls: 'pending-tile--autofill',
+      styleVars: '--tile-c: var(--accent); --tile-glow: rgba(255,59,78,0.22);',
+      tag: 'CASTIGO',
+      visual: `
+        <svg class="pending-icon-dice" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <g transform="rotate(-10 19 33)"><rect x="4" y="18" width="30" height="30" rx="7" fill="currentColor" opacity="0.82"/>
+            <circle cx="13" cy="27" r="2.6" fill="var(--bg-plate)"/>
+            <circle cx="25" cy="39" r="2.6" fill="var(--bg-plate)"/>
+          </g>
+          <g transform="rotate(9 43 29)"><rect x="28" y="12" width="30" height="30" rx="7" fill="currentColor"/>
+            <circle cx="37" cy="20" r="2.6" fill="var(--bg-plate)"/>
+            <circle cx="49" cy="20" r="2.6" fill="var(--bg-plate)"/>
+            <circle cx="37" cy="34" r="2.6" fill="var(--bg-plate)"/>
+            <circle cx="49" cy="34" r="2.6" fill="var(--bg-plate)"/>
+          </g>
+        </svg>`,
+      label: 'Autofill',
+    };
   }
-  return p.prizeLabel;
+
+  if (key === 'SIN_FLASH') {
+    return {
+      cls: 'pending-tile--flash',
+      styleVars: '--tile-c: var(--bs-flash); --tile-glow: rgba(92,201,255,0.24);',
+      tag: 'PROHIBIDO',
+      visual: `<div class="prohibited-badge"><img src="${flashIconUrl()}" onerror="this.style.visibility='hidden'"></div>`,
+      label: 'Sin Flash',
+    };
+  }
+
+  if (key === 'SIN_BOTAS') {
+    return {
+      cls: 'pending-tile--boots',
+      styleVars: '--tile-c: var(--accent-2); --tile-glow: rgba(255,122,69,0.24);',
+      tag: 'PROHIBIDO',
+      visual: `<div class="prohibited-badge"><img src="${bootsIconUrl()}" onerror="this.style.visibility='hidden'"></div>`,
+      label: 'Sin comprar botas',
+    };
+  }
+
+  if (key === 'RANDOM_CHAMP') {
+    const champ = findChampionByName(p.champion);
+    const styleVars = '--tile-c: var(--gold); --tile-glow: rgba(242,193,78,0.2);';
+    if (p.champion && champ) {
+      return {
+        cls: 'pending-tile--champ',
+        styleVars,
+        bgImage: champ.splash,
+        tag: 'CAMPEÓN AL AZAR',
+        visual: `<div class="pending-tile__champ-name">${champ.name}</div>`,
+        label: '',
+      };
+    }
+    if (p.champion) {
+      // ya se sorteó, pero todavía no cargamos la lista de campeones para el splash
+      return { cls: 'pending-tile--champ', styleVars, tag: 'CAMPEÓN AL AZAR', visual: `<div class="champ-mystery">${p.champion}</div>`, label: '' };
+    }
+    return { cls: 'pending-tile--champ', styleVars, tag: 'CAMPEÓN AL AZAR', visual: '<div class="champ-mystery">?</div>', label: 'Sorteando campeón...' };
+  }
+
+  // fallback genérico por si algún registro viejo no tiene premio guardado
+  return { cls: '', styleVars: '', tag: 'BLUE SHELL', visual: '<div class="champ-mystery">🐢</div>', label: p.prizeLabel || 'Blue Shell' };
 }
 
 function renderPending(list) {
@@ -1184,18 +1492,24 @@ function renderPending(list) {
     el.innerHTML = '<div class="history-empty">No hay blue shells pendientes 🎉</div>';
     return;
   }
-  el.innerHTML = list.slice().reverse().map(p => `
-    <div class="pending-row">
-      <div class="pending-row__main">
-        <span class="pending-row__victim">${p.to}</span>
-        <span class="pending-row__punishment">Castigo pendiente: ${pendingPunishmentText(p)}</span>
+  el.innerHTML = list.slice().reverse().map(p => {
+    const v = pendingVisual(p);
+    const style = v.bgImage ? `${v.styleVars} background-image:url('${v.bgImage}');` : v.styleVars;
+    return `
+      <div class="pending-tile ${v.cls}">
+        <div class="pending-tile__visual" style="${style}">
+          <span class="pending-tile__visual-tag">${v.tag}</span>
+          ${v.visual}
+        </div>
+        <div class="pending-tile__body">
+          <div class="pending-tile__victim">${p.to}</div>
+          ${v.label ? `<div class="pending-tile__label">${v.label}</div>` : ''}
+          <div class="pending-tile__meta">De <b>${p.from}</b> · ${timeAgo(p.createdAt)}</div>
+          ${currentUser === p.to ? `<button class="pending-tile__done-btn" onclick="completePending('${p.id}')">✅ Ya la hice</button>` : ''}
+        </div>
       </div>
-      <div class="pending-row__sub">
-        <span class="pending-row__meta">Lanzado por <b>${p.from}</b> 🐢 · ${timeAgo(p.createdAt)}</span>
-        ${currentUser === p.to ? `<button class="pending-row__done-btn" onclick="completePending('${p.id}')">✅ Ya la hice</button>` : ''}
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 async function loadPendingList() {
@@ -1225,11 +1539,16 @@ async function completePending(id) {
   }
 }
 
-loadPlayers().then(() => {
+loadPlayers().then(async () => {
   loadCounter();
-  checkSession();
+  await checkSession();
+  await loadInventory();
 });
 loadPendingList();
+// Precarga la lista de campeones (splash arts) para que las tarjetas de
+// "Campeón aleatorio" en Blue Shells pendientes se vean con la imagen posta
+// y no solo con el nombre, apenas esté disponible.
+getChampionList().then(() => renderPending(lastPendingList));
 </script>
 </body>
 </html>

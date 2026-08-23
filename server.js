@@ -460,10 +460,57 @@ app.get('/api/session', (req, res) => {
   res.json({ ok: true, displayName: session.displayName });
 });
 
+// ---------- Inventario de Blue Shells ----------
+// Cada cuenta puede "conseguir" blue shells (hasta un máximo) y las gasta al
+// tirárselas a un rival. Así se corta el poder tirar ruletas ilimitadas: si
+// no tenés stock, no podés tirar.
+const MAX_BLUESHELL_STOCK = 3;
+const INVENTORY_FILE = path.join(DATA_DIR, 'blueshell-inventory.json');
+
+function loadInventory() {
+  try {
+    return JSON.parse(fs.readFileSync(INVENTORY_FILE, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+function saveInventory(inv) {
+  try {
+    fs.writeFileSync(INVENTORY_FILE, JSON.stringify(inv, null, 2));
+  } catch (err) {
+    console.error('No se pudo guardar blueshell-inventory.json:', err.message);
+  }
+}
+
+let blueshellInventory = loadInventory();
+
+function getStock(displayName) {
+  return blueshellInventory[displayName] || 0;
+}
+
+app.get('/api/blueshell/inventory', (_req, res) => {
+  // Devuelve el stock de TODOS los jugadores (incluso los que nunca
+  // consiguieron ninguna, en 0), así el front puede pintar la lista completa.
+  const full = {};
+  ACCOUNTS.forEach(a => { full[a.displayName] = getStock(a.displayName); });
+  res.json({ inventory: full, max: MAX_BLUESHELL_STOCK });
+});
+
+app.post('/api/blueshell/inventory/add', requireAuth, (req, res) => {
+  const current = getStock(req.displayName);
+  if (current >= MAX_BLUESHELL_STOCK) {
+    return res.status(400).json({ error: `Ya tenés el máximo de ${MAX_BLUESHELL_STOCK} blue shells` });
+  }
+  blueshellInventory[req.displayName] = current + 1;
+  saveInventory(blueshellInventory);
+  res.json({ ok: true, inventory: blueshellInventory[req.displayName] });
+});
+
 // ---------- Blue Shells pendientes ----------
 // Cola simple de "fulano le tiró una blue shell a mengano". Cualquier cuenta
-// logueada puede tirarle una a otra; la víctima (logueada) es la única que
-// puede marcarla como hecha, y ahí desaparece de la lista.
+// logueada puede tirarle una a otra (si tiene stock), la víctima (logueada)
+// es la única que puede marcarla como hecha, y ahí desaparece de la lista.
 const PENDING_FILE = path.join(DATA_DIR, 'blueshell-pending.json');
 
 function loadPending() {
@@ -496,6 +543,13 @@ app.post('/api/blueshell/throw', requireAuth, (req, res) => {
     return res.status(400).json({ error: 'No te podés tirar una blue shell a vos mismo' });
   }
 
+  const stock = getStock(req.displayName);
+  if (stock <= 0) {
+    return res.status(400).json({ error: 'No te quedan blue shells. Conseguí una arriba antes de tirar 🐢' });
+  }
+  blueshellInventory[req.displayName] = stock - 1;
+  saveInventory(blueshellInventory);
+
   const entry = {
     id: crypto.randomUUID(),
     from: req.displayName,
@@ -507,7 +561,7 @@ app.post('/api/blueshell/throw', requireAuth, (req, res) => {
   };
   pendingBlueshells.push(entry);
   savePending(pendingBlueshells);
-  res.json({ ok: true, pending: pendingBlueshells, id: entry.id });
+  res.json({ ok: true, pending: pendingBlueshells, id: entry.id, inventory: blueshellInventory[req.displayName] });
 });
 
 // Se llama después del sorteo de campeón (solo aplica al premio "Campeón
