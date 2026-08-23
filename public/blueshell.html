@@ -597,6 +597,7 @@
   .prohibited-badge img {
     width: 78%; height: 78%; object-fit: contain; border-radius: 10px;
     filter: drop-shadow(0 4px 10px rgba(0,0,0,0.5));
+    position: relative; z-index: 1;
   }
   .prohibited-badge::after {
     content: '';
@@ -604,6 +605,7 @@
     border: 5px solid var(--accent);
     border-radius: 50%;
     box-shadow: 0 0 0 2px rgba(10,7,8,0.5), 0 4px 14px rgba(255,59,78,0.35);
+    z-index: 3;
   }
   .prohibited-badge::before {
     content: '';
@@ -613,6 +615,7 @@
     transform: rotate(-45deg);
     border-radius: 3px;
     box-shadow: 0 0 0 2px rgba(10,7,8,0.5);
+    z-index: 2;
   }
 
   /* campeón sorteado / pendiente de sortear */
