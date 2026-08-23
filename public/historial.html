@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Historial — SPQC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="shared.css">
+<style>
+  .page-head { text-align: center; padding: 44px 20px 8px; }
+  .page-head__eyebrow { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 3px; color: var(--text-dim); display:flex; align-items:center; justify-content:center; gap:8px;}
+  .page-head__main { font-family: var(--display); font-size: clamp(2.2rem, 8vw, 3rem); letter-spacing: 2px; color: var(--accent); text-shadow: 0 0 34px var(--accent-glow, rgba(255,59,78,0.35)); margin: 6px 0 2px; }
+  .page-head__sub { color: var(--text-dim); font-size: 0.9rem; }
+
+  /* ---------- selector de jugador ---------- */
+  .player-picker {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 2px 24px;
+    scrollbar-width: none;
+  }
+  .player-picker::-webkit-scrollbar { display: none; }
+  .player-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px 6px 6px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+  }
+  .player-chip img {
+    width: 26px; height: 26px; border-radius: 50%;
+    object-fit: cover; background: #201415; flex-shrink: 0;
+  }
+  .player-chip:hover { color: var(--text); }
+  .player-chip.active {
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--accent-dim);
+  }
+
+  /* ---------- resumen rápido (record de las 5) ---------- */
+  .form-summary {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .form-summary__pips { display: flex; gap: 5px; }
+  .form-pip {
+    width: 20px; height: 20px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.62rem; font-weight: 700; color: #08090c;
+  }
+  .form-pip--win { background: var(--win); }
+  .form-pip--loss { background: var(--loss); }
+
+  /* ---------- filas de partida ---------- */
+  .match-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin-bottom: 8px;
+    background: var(--bg-card);
+    border-left: 4px solid var(--loss);
+  }
+  .match-row--win { border-left-color: var(--win); background: rgba(56, 217, 135, 0.06); }
+  .match-row:not(.match-row--win) { background: rgba(255, 82, 82, 0.05); }
+
+  .match-row__champ {
+    width: 44px; height: 44px; border-radius: 9px;
+    border: 1px solid var(--border); flex-shrink: 0; background: #201415;
+  }
+  .match-row__main { min-width: 0; }
+  .match-row__result {
+    font-family: var(--mono); font-weight: 700; font-size: 0.68rem;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .match-row--win .match-row__result { color: var(--win); }
+  .match-row:not(.match-row--win) .match-row__result { color: var(--loss); }
+
+  .match-row__kda { font-family: var(--mono); font-weight: 700; font-size: 1rem; margin-top: 2px; }
+  .match-row__champname { color: var(--text-faint); font-weight: 400; font-size: 0.82rem; margin-left: 8px; }
+
+  .match-row__meta {
+    margin-left: auto; text-align: right; flex-shrink: 0;
+    font-size: 0.75rem; color: var(--text-dim); line-height: 1.5;
+  }
+  .match-row__queue { font-family: var(--mono); font-size: 0.66rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; }
+
+  .empty-msg, .no-data {
+    text-align: center; padding: 50px 20px; color: var(--text-faint);
+    font-family: var(--mono); font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav__inner">
+    <a class="topnav__brand" href="index.html">SPQC</a>
+    <div class="topnav__links">
+      <a href="index.html">Tabla</a>
+      <a href="live.html">En vivo</a>
+      <a href="historial.html" class="active">Historial</a>
+      <a href="blueshell.html">Blue Shell</a>
+      <a href="rules.html">Reglas</a>
+    </div>
+  </div>
+</nav>
+
+<header class="page-head">
+  <div class="page-head__eyebrow">📜 Historial</div>
+  <div class="page-head__main">ÚLTIMAS 5</div>
+  <div class="page-head__sub">Ranked Solo/Dúo — elegí un jugador</div>
+</header>
+
+<main class="wrap" style="padding-top: 10px;">
+  <div id="picker" class="player-picker"></div>
+  <div id="summary"></div>
+  <div id="matches"></div>
+</main>
+
+<footer>Datos vía Riot Games API · Se actualiza cada 60s</footer>
+
+<script>
+const QUEUE_NAME = {
+  420: 'Clasificatoria Solo/Dúo', 440: 'Clasificatoria Flexible',
+  400: 'Normal (Draft)', 430: 'Normal (Ciego)', 450: 'ARAM'
+};
+
+let championById = null;
+async function getChampionMap() {
+  if (championById) return championById;
+  try {
+    const versions = await (await fetch('https://ddragon.leagueoflegends.com/api/versions.json')).json();
+    const version = versions[0];
+    const data = await (await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/es_MX/champion.json`)).json();
+    championById = { version, map: {} };
+    Object.values(data.data).forEach(c => { championById.map[c.key] = { name: c.name, id: c.id }; });
+  } catch {
+    championById = { version: null, map: {} };
+  }
+  return championById;
+}
+function championIconUrl(version, champId) {
+  return `https://ddragon.leagueoflegends.com/cdn/${version}/img/champion/${champId}.png`;
+}
+
+function timeAgo(ms) {
+  const mins = Math.floor((Date.now() - ms) / 60000);
+  if (mins < 1) return 'recién';
+  if (mins < 60) return `hace ${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `hace ${hrs}h`;
+  return `hace ${Math.floor(hrs / 24)}d`;
+}
+
+function matchRowHtml(m, champData) {
+  const champ = champData.map[m.championId];
+  const src = champ && champData.version ? championIconUrl(champData.version, champ.id) : '';
+  const min = m.durationSeconds / 60;
+  const csPerMin = min > 0 ? (m.cs / min).toFixed(1) : '0.0';
+  const durationLabel = `${Math.floor(min)}:${String(Math.round((m.durationSeconds % 60))).padStart(2, '0')}`;
+  return `
+    <div class="match-row ${m.win ? 'match-row--win' : ''}">
+      <img class="match-row__champ" src="${src}" onerror="this.style.visibility='hidden'">
+      <div class="match-row__main">
+        <div class="match-row__result">${m.win ? 'Victoria' : 'Derrota'}</div>
+        <div class="match-row__kda">${m.kills}/${m.deaths}/${m.assists}<span class="match-row__champname">${champ ? champ.name : 'Desconocido'}</span></div>
+      </div>
+      <div class="match-row__meta">
+        <div class="match-row__queue">${QUEUE_NAME[m.queueId] || 'Otra cola'}</div>
+        ${m.cs} CS (${csPerMin}/min) · ${durationLabel}<br>
+        ${timeAgo(m.gameCreationMs)}
+      </div>
+    </div>
+  `;
+}
+
+function summaryHtml(matches) {
+  if (!matches.length) return '';
+  const wins = matches.filter(m => m.win).length;
+  const pips = matches.map(m => `<span class="form-pip ${m.win ? 'form-pip--win' : 'form-pip--loss'}">${m.win ? 'V' : 'D'}</span>`).join('');
+  return `
+    <div class="form-summary">
+      <span>${wins}V - ${matches.length - wins}D en las últimas ${matches.length}</span>
+      <div class="form-summary__pips">${pips}</div>
+    </div>
+  `;
+}
+
+let allMatches = {};
+let allPlayers = [];
+let activePlayer = null;
+
+async function renderMatches(displayName) {
+  activePlayer = displayName;
+  document.querySelectorAll('.player-chip').forEach(el => {
+    el.classList.toggle('active', el.dataset.name === displayName);
+  });
+
+  const container = document.getElementById('matches');
+  const summary = document.getElementById('summary');
+  const matches = allMatches[displayName] || [];
+
+  if (!matches.length) {
+    summary.innerHTML = '';
+    container.innerHTML = `<div class="empty-msg">Sin partidas ranked recientes.</div>`;
+    return;
+  }
+
+  const champData = await getChampionMap();
+  summary.innerHTML = summaryHtml(matches);
+  container.innerHTML = matches.map(m => matchRowHtml(m, champData)).join('');
+}
+
+function renderPicker() {
+  const picker = document.getElementById('picker');
+  picker.innerHTML = allPlayers.map(p => `
+    <div class="player-chip" data-name="${p.displayName}">
+      <img src="${p.avatar || ''}" onerror="this.style.visibility='hidden'">
+      ${p.displayName}
+    </div>
+  `).join('');
+  picker.querySelectorAll('.player-chip').forEach(el => {
+    el.addEventListener('click', () => renderMatches(el.dataset.name));
+  });
+}
+
+async function load() {
+  try {
+    const [lbRes, matchesRes] = await Promise.all([
+      fetch('https://perusqc-production.up.railway.app/api/leaderboard'),
+      fetch('https://perusqc-production.up.railway.app/api/matches'),
+    ]);
+    const lbData = await lbRes.json();
+    const matchesData = await matchesRes.json();
+    if (!lbRes.ok) throw new Error(lbData.error || 'Error cargando jugadores');
+    if (!matchesRes.ok) throw new Error(matchesData.error || 'Error cargando historial');
+
+    allPlayers = (lbData.leaderboard || []).filter(p => !p.error);
+    allMatches = matchesData.byPlayer || {};
+
+    if (!allPlayers.length) {
+      document.getElementById('matches').innerHTML = `<div class="no-data">No hay jugadores cargados.</div>`;
+      return;
+    }
+
+    renderPicker();
+    renderMatches(activePlayer && allMatches[activePlayer] ? activePlayer : allPlayers[0].displayName);
+  } catch (err) {
+    document.getElementById('matches').innerHTML = `<div class="no-data">Error: ${err.message}</div>`;
+  }
+}
+
+load();
+setInterval(load, 60000);
+</script>
+</body>
+</html>

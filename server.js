@@ -593,5 +593,74 @@ app.post('/api/blueshell/pending/:id/complete', requireAuth, (req, res) => {
   res.json({ ok: true, pending: pendingBlueshells });
 });
 
+const RECENT_IDS_TTL_MS = 15 * 60 * 1000; // 15 min
+const recentIdsCache = new Map();   // puuid -> { at, ids }
+const matchDetailCache = new Map(); // matchId -> detalle del match
+
+async function getMatchDetail(matchId) {
+  if (matchDetailCache.has(matchId)) return matchDetailCache.get(matchId);
+  const match = await riotFetch(`https://${CONTINENT}.api.riotgames.com/lol/match/v5/matches/${matchId}`);
+  if (match) matchDetailCache.set(matchId, match);
+  return match;
+}
+
+async function loadRecentMatches(puuid) {
+  const now = Date.now();
+  const cached = recentIdsCache.get(puuid);
+  let ids;
+  if (cached && now - cached.at < RECENT_IDS_TTL_MS) {
+    ids = cached.ids;
+  } else {
+    ids = await riotFetch(
+      `https://${CONTINENT}.api.riotgames.com/riot/match/v5/matches/by-puuid/${puuid}/ids?queue=420&count=5`
+    ) || [];
+    recentIdsCache.set(puuid, { at: now, ids });
+  }
+
+  const details = await Promise.all(ids.map(getMatchDetail));
+  return details.filter(Boolean).map(match => {
+    const info = match.info;
+    const p = info.participants.find(x => x.puuid === puuid);
+    if (!p) return null;
+    return {
+      matchId: match.metadata.matchId,
+      win: p.win,
+      championId: p.championId,
+      kills: p.kills,
+      deaths: p.deaths,
+      assists: p.assists,
+      cs: p.totalMinionsKilled + p.neutralMinionsKilled,
+      durationSeconds: info.gameDuration,
+      gameCreationMs: info.gameCreation,
+      queueId: info.queueId,
+    };
+  }).filter(Boolean);
+}
+
+// Cache del endpoint completo (los 7 jugadores juntos), corto, para que si
+// varios amigos tienen historial.html abierto no se disparen llamadas de más.
+const MATCHES_ENDPOINT_TTL_MS = 60_000;
+let matchesEndpointCache = { at: 0, data: null };
+
+app.get('/api/matches', async (_req, res) => {
+  try {
+    const now = Date.now();
+    if (matchesEndpointCache.data && now - matchesEndpointCache.at < MATCHES_ENDPOINT_TTL_MS) {
+      return res.json({ byPlayer: matchesEndpointCache.data, cached: true });
+    }
+    const { data: leaderboard } = await getLeaderboard(); // reusa el caché, no golpea Riot de más
+    const players = leaderboard.filter(p => !p.error && p.puuid);
+    const entries = await Promise.all(players.map(async p => [
+      p.displayName,
+      await loadRecentMatches(p.puuid),
+    ]));
+    const byPlayer = Object.fromEntries(entries);
+    matchesEndpointCache = { at: now, data: byPlayer };
+    res.json({ byPlayer, cached: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SPQC corriendo en http://localhost:${PORT}`));
