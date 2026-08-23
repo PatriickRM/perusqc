@@ -593,9 +593,10 @@ app.post('/api/blueshell/pending/:id/complete', requireAuth, (req, res) => {
   res.json({ ok: true, pending: pendingBlueshells });
 });
 
+// ---------- Historial de últimas partidas (últimas 5, ranked solo/dúo) ----------
 const RECENT_IDS_TTL_MS = 15 * 60 * 1000; // 15 min
 const recentIdsCache = new Map();   // puuid -> { at, ids }
-const matchDetailCache = new Map(); // matchId -> detalle del match
+const matchDetailCache = new Map(); // matchId -> detalle del match (nunca expira)
 
 async function getMatchDetail(matchId) {
   if (matchDetailCache.has(matchId)) return matchDetailCache.get(matchId);
@@ -611,10 +612,21 @@ async function loadRecentMatches(puuid) {
   if (cached && now - cached.at < RECENT_IDS_TTL_MS) {
     ids = cached.ids;
   } else {
-    ids = await riotFetch(
-      `https://${CONTINENT}.api.riotgames.com/riot/match/v5/matches/by-puuid/${puuid}/ids?queue=420&count=5`
-    ) || [];
-    recentIdsCache.set(puuid, { at: now, ids });
+    try {
+      ids = await riotFetch(
+        `https://${CONTINENT}.api.riotgames.com/riot/match/v5/matches/by-puuid/${puuid}/ids?queue=420&count=5`
+      ) || [];
+      recentIdsCache.set(puuid, { at: now, ids });
+    } catch (err) {
+      // Bug conocido de Riot: algunas cuentas puntuales devuelven
+      // "Exception decrypting" en match-v5 aunque el mismo puuid funcione
+      // perfecto en summoner-v4/league-v4/account-v1 (lo confirmamos a mano
+      // en el Developer Portal). No es arreglable de nuestro lado, así que
+      // a esa cuenta la dejamos sin historial en vez de tumbar el endpoint
+      // completo para el resto del grupo.
+      console.warn(`⚠️  match-v5 falló para puuid ${puuid}: ${err.message}`);
+      return [];
+    }
   }
 
   const details = await Promise.all(ids.map(getMatchDetail));
@@ -637,8 +649,6 @@ async function loadRecentMatches(puuid) {
   }).filter(Boolean);
 }
 
-// Cache del endpoint completo (los 7 jugadores juntos), corto, para que si
-// varios amigos tienen historial.html abierto no se disparen llamadas de más.
 const MATCHES_ENDPOINT_TTL_MS = 60_000;
 let matchesEndpointCache = { at: 0, data: null };
 
@@ -648,7 +658,7 @@ app.get('/api/matches', async (_req, res) => {
     if (matchesEndpointCache.data && now - matchesEndpointCache.at < MATCHES_ENDPOINT_TTL_MS) {
       return res.json({ byPlayer: matchesEndpointCache.data, cached: true });
     }
-    const { data: leaderboard } = await getLeaderboard(); // reusa el caché, no golpea Riot de más
+    const { data: leaderboard } = await getLeaderboard();
     const players = leaderboard.filter(p => !p.error && p.puuid);
     const entries = await Promise.all(players.map(async p => [
       p.displayName,
@@ -661,6 +671,3 @@ app.get('/api/matches', async (_req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`SPQC corriendo en http://localhost:${PORT}`));
