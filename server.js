@@ -61,7 +61,7 @@ const ACCOUNTS = [
     gameName: 'Minita Carreada',
     tagLine: 'Miau',
     role: 'SUPPORT',
-    avatar: 'https://i.pinimg.com/1200x/b7/a2/11/b7a21189b96c881901bc0e2c22fec7d6.jpg'
+    avatar: 'https://media.discordapp.net/attachments/522895219541147648/1540519150013644870/9ea9083ec93dff4e20b1ab5cd28ecf1e.png?ex=6a8a3fc2&is=6a88ee42&hm=8ed5e68c18549c546bf497bed794de503be2eea86bb0f312fe531619c80ea9e6&=&format=webp&quality=lossless'
   },
 
   {
@@ -69,7 +69,7 @@ const ACCOUNTS = [
     gameName: 'Satenekig',
     tagLine: 'LAN',
     role: 'ADC',
-    avatar: 'https://i.pinimg.com/736x/7c/5e/eb/7c5eeb878892bb43d3ad75d2402765a3.jpg'
+    avatar: 'https://i.blogs.es/5eeb4a/burns/840_560.jpeg'
   },
   {
     displayName: 'Junior',
@@ -499,16 +499,28 @@ function recordLpSnapshot(player) {
   saveJsonFile(LP_LOG_FILE, lpLog);
 }
 
-// Busca el snapshot vigente justo antes de `ts` y el primero disponible
-// justo después de `ts` para ese puuid.
-function findSurroundingSnapshots(puuid, ts) {
+// Snapshots ordenados ascendente por tiempo (así se van guardando). Dos
+// búsquedas independientes: la de "antes" se ancla al INICIO de la partida
+// (gameCreation) y la de "después" se ancla al FINAL (gameCreation + duración).
+// Antes esto estaba mal: se buscaban ambas con la misma referencia (el final),
+// lo que hacía que "antes" casi siempre cayera en un snapshot tomado A MITAD
+// de la partida (no antes de que arrancara), y esa partida quedaba descartada
+// siempre — para todas las cuentas, no solo para partidas nuevas.
+function findSnapshotBefore(puuid, ts) {
   const list = lpLog[puuid] || [];
-  let before = null, after = null;
+  let result = null;
   for (const snap of list) {
-    if (snap.at <= ts) before = snap; // se va quedando con el último <= ts
-    else if (!after) after = snap; // el primero > ts
+    if (snap.at <= ts) result = snap; // se va quedando con el último <= ts
+    else break;
   }
-  return { before, after };
+  return result;
+}
+function findSnapshotAfter(puuid, ts) {
+  const list = lpLog[puuid] || [];
+  for (const snap of list) {
+    if (snap.at >= ts) return snap; // el primero >= ts
+  }
+  return null;
 }
 
 // Recorre las partidas ranked nuevas de un jugador y actualiza sus stats de
@@ -525,8 +537,8 @@ function processLpStats(displayName, matches) {
     const gameEndMs = m.gameCreation + m.gameDurationSeconds * 1000;
     // Necesitamos el puuid para buscar snapshots; lo resolvemos desde ACCOUNTS vía displayName más abajo (ver processAllLpStats)
     const puuid = entry._puuid;
-    const { before, after } = findSurroundingSnapshots(puuid, gameEndMs);
-    const beforeGame = before && before.at <= m.gameCreation ? before : null;
+    const beforeGame = findSnapshotBefore(puuid, m.gameCreation); // última foto ANTES de que arrancara
+    const after = findSnapshotAfter(puuid, gameEndMs); // primera foto DESPUÉS de que terminó
 
     if (beforeGame && after && beforeGame.tier === after.tier && beforeGame.rank === after.rank) {
       const delta = after.leaguePoints - beforeGame.leaguePoints;
@@ -893,3 +905,16 @@ app.post('/api/blueshell/pending/:id/complete', requireAuth, (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`SPQC corriendo en http://localhost:${PORT}`));
+
+// ---------- Poller de LP en segundo plano ----------
+// El tracking de Aegis/promedios de LP necesita un snapshot de ANTES y otro
+// de DESPUÉS de cada partida. Si esos snapshots solo se tomaran cuando
+// alguien carga la página, cualquier partida jugada mientras nadie está
+// mirando la web (de noche, entre semana, etc.) queda sin registrar.
+// Este poller llama a getLeaderboard() cada BACKGROUND_POLL_MS, así los
+// snapshots se siguen tomando aunque no haya visitas — mismo caché de
+// siempre, solo que ahora se refresca solo en vez de esperar tráfico.
+const BACKGROUND_POLL_MS = 90_000; // un poco más que el TTL del caché (80s), para no pisarlo
+setInterval(() => {
+  getLeaderboard().catch(err => console.error('Poller de LP en segundo plano falló:', err.message));
+}, BACKGROUND_POLL_MS);
