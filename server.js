@@ -61,15 +61,14 @@ const ACCOUNTS = [
     gameName: 'Minita Carreada',
     tagLine: 'Miau',
     role: 'SUPPORT',
-    avatar: 'https://media.discordapp.net/attachments/522895219541147648/1540519150013644870/9ea9083ec93dff4e20b1ab5cd28ecf1e.png?ex=6a8a3fc2&is=6a88ee42&hm=8ed5e68c18549c546bf497bed794de503be2eea86bb0f312fe531619c80ea9e6&=&format=webp&quality=lossless'
+    avatar: 'https://i.pinimg.com/1200x/9e/af/51/9eaf51fa4495cdd616e618ec47c357b5.jpg'
   },
-
   {
     displayName: 'karalej',
     gameName: 'Satenekig',
     tagLine: 'LAN',
     role: 'ADC',
-    avatar: 'https://i.pinimg.com/1200x/9e/af/51/9eaf51fa4495cdd616e618ec47c357b5.jpg'
+    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRdAOk3FjJWGv_3QM4Xdu4FYk12Osvn8Z1jakAUFP258w&s=10'
   },
   {
     displayName: 'Junior',
