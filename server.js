@@ -61,14 +61,15 @@ const ACCOUNTS = [
     gameName: 'Minita Carreada',
     tagLine: 'Miau',
     role: 'SUPPORT',
-    avatar: 'https://i.pinimg.com/1200x/9e/af/51/9eaf51fa4495cdd616e618ec47c357b5.jpg'
+    avatar: 'https://media.discordapp.net/attachments/522895219541147648/1540519150013644870/9ea9083ec93dff4e20b1ab5cd28ecf1e.png?ex=6a8a3fc2&is=6a88ee42&hm=8ed5e68c18549c546bf497bed794de503be2eea86bb0f312fe531619c80ea9e6&=&format=webp&quality=lossless'
   },
+
   {
     displayName: 'karalej',
     gameName: 'Satenekig',
     tagLine: 'LAN',
     role: 'ADC',
-    avatar: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRdAOk3FjJWGv_3QM4Xdu4FYk12Osvn8Z1jakAUFP258w&s=10'
+    avatar: 'https://i.blogs.es/5eeb4a/burns/840_560.jpeg'
   },
   {
     displayName: 'Junior',
@@ -132,6 +133,7 @@ async function riotFetch(url) {
 // ---------- Caché simple en memoria (evita golpear la Riot API en cada refresh) ----------
 const CACHE_TTL_MS = 80_000;
 let leaderboardCache = { at: 0, data: null };
+let leaderboardBuildPromise = null; // evita reconstrucciones simultáneas del leaderboard
 
 // Caché aparte, más corto, solo para el estado en vivo — así si varias
 // personas tienen live.html abierto al mismo tiempo no se duplican las
@@ -205,9 +207,22 @@ async function getLeaderboard() {
   if (leaderboardCache.data && now - leaderboardCache.at < CACHE_TTL_MS) {
     return { data: leaderboardCache.data, cached: true };
   }
-  const leaderboard = await buildLeaderboard();
-  leaderboardCache = { at: now, data: leaderboard };
-  return { data: leaderboard, cached: false };
+  // Si ya hay una construcción en curso (ej. dos endpoints pidiéndolo casi al
+  // mismo tiempo justo cuando el caché venció), esperamos esa misma promesa
+  // en vez de disparar otro build en paralelo — eso es lo que duplicaba las
+  // llamadas a Riot y disparaba los 429.
+  if (leaderboardBuildPromise) {
+    const data = await leaderboardBuildPromise;
+    return { data, cached: false };
+  }
+  leaderboardBuildPromise = buildLeaderboard();
+  try {
+    const leaderboard = await leaderboardBuildPromise;
+    leaderboardCache = { at: Date.now(), data: leaderboard };
+    return { data: leaderboard, cached: false };
+  } finally {
+    leaderboardBuildPromise = null;
+  }
 }
 
 app.get('/api/leaderboard', async (_req, res) => {
@@ -354,6 +369,7 @@ app.get('/api/live', async (_req, res) => {
 const MATCH_HISTORY_COUNT = 5;
 const MATCH_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
 let matchHistoryCache = { at: 0, data: null };
+let matchHistoryBuildPromise = null; // mismo lock que el leaderboard: evita duplicar el fetch más caro (match-v5) si dos endpoints lo piden a la vez
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -411,15 +427,29 @@ async function buildMatchHistory() {
   return result;
 }
 
+async function getMatchHistory() {
+  const now = Date.now();
+  if (matchHistoryCache.data && now - matchHistoryCache.at < MATCH_CACHE_TTL_MS) {
+    return { data: matchHistoryCache.data, cached: true };
+  }
+  if (matchHistoryBuildPromise) {
+    const data = await matchHistoryBuildPromise;
+    return { data, cached: false };
+  }
+  matchHistoryBuildPromise = buildMatchHistory();
+  try {
+    const players = await matchHistoryBuildPromise;
+    matchHistoryCache = { at: Date.now(), data: players };
+    return { data: players, cached: false };
+  } finally {
+    matchHistoryBuildPromise = null;
+  }
+}
+
 app.get('/api/matches', async (_req, res) => {
   try {
-    const now = Date.now();
-    if (matchHistoryCache.data && now - matchHistoryCache.at < MATCH_CACHE_TTL_MS) {
-      return res.json({ players: matchHistoryCache.data, cached: true });
-    }
-    const players = await buildMatchHistory();
-    matchHistoryCache = { at: now, data: players };
-    res.json({ players, cached: false });
+    const { data: players, cached } = await getMatchHistory();
+    res.json({ players, cached });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -555,15 +585,7 @@ function processAllLpStats(matchHistoryPlayers, leaderboard) {
 app.get('/api/lp-stats', async (_req, res) => {
   try {
     const { data: leaderboard } = await getLeaderboard();
-    const { players } = await (async () => {
-      const now = Date.now();
-      if (matchHistoryCache.data && now - matchHistoryCache.at < MATCH_CACHE_TTL_MS) {
-        return { players: matchHistoryCache.data };
-      }
-      const players = await buildMatchHistory();
-      matchHistoryCache = { at: now, data: players };
-      return { players };
-    })();
+    const { data: players } = await getMatchHistory();
 
     processAllLpStats(players, leaderboard);
 
@@ -573,6 +595,22 @@ app.get('/api/lp-stats', async (_req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Carga manual de Aegis "viejos" (partidas de antes de tener el tracker
+// automático corriendo, o cualquier caso donde el detector no lo haya
+// pescado). Solo suma/resta al contador, requiere estar logueado y cada
+// cuenta únicamente puede tocar su propio contador. `delta` normalmente es
+// 1 (o -1 si te equivocaste al cargar uno).
+app.post('/api/aegis/adjust', requireAuth, (req, res) => {
+  const rawDelta = req.body?.delta;
+  const delta = Number.isInteger(rawDelta) ? rawDelta : 1;
+  if (delta === 0) return res.status(400).json({ error: 'delta no puede ser 0' });
+
+  const entry = lpStats[req.displayName] || (lpStats[req.displayName] = emptyLpStatsEntry());
+  entry.aegisCount = Math.max(0, entry.aegisCount + delta);
+  saveJsonFile(LP_STATS_FILE, lpStats);
+  res.json({ ok: true, displayName: req.displayName, aegisCount: entry.aegisCount });
 });
 
 // ---------- Contador de Blue Shell ----------
