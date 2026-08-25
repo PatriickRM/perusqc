@@ -197,6 +197,37 @@
   }
   .wr-record .w { color: var(--win); font-weight: 700; }
   .wr-record .l { color: var(--loss); font-weight: 700; }
+  .lp-avg-cell {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+  }
+  .lp-avg-gain { color: var(--win); }
+  .lp-avg-loss { color: var(--loss); }
+  .lp-avg-sep { color: var(--text-dim); margin: 0 2px; }
+  .lp-avg-empty { color: var(--text-dim); }
+  .aegis-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-family: var(--mono);
+    font-weight: 800;
+    font-size: 0.82rem;
+    color: var(--accent-2);
+    background: rgba(255, 122, 69, 0.12);
+    border: 1px solid rgba(255, 122, 69, 0.35);
+    border-radius: 999px;
+    padding: 3px 10px;
+    white-space: nowrap;
+  }
+  .aegis-badge--zero {
+    color: var(--text-dim);
+    background: transparent;
+    border-color: rgba(255, 255, 255, 0.08);
+  }
   .wr-bar {
     height: 10px;
     border-radius: 999px;
@@ -315,10 +346,12 @@
       <table class="board" id="board" style="display:none">
         <colgroup>
           <col style="width:46px">
-          <col style="width:26%">
+          <col style="width:22%">
           <col style="width:92px">
           <col style="width:128px">
           <col>
+          <col style="width:110px">
+          <col style="width:80px">
           <col style="width:128px">
         </colgroup>
         <thead>
@@ -328,6 +361,8 @@
             <th class="col-role">Rol</th>
             <th class="col-elo">Elo</th>
             <th class="col-wr">Winrate</th>
+            <th class="col-lp" title="Promedio de LP que gana/pierde por partida ranked">Prom. LP</th>
+            <th class="col-aegis" title="Victorias con doble LP por Aegis of Valor (autofill + ganada)">Aegis</th>
             <th class="col-stats">Stats</th>
           </tr>
         </thead>
@@ -408,9 +443,19 @@ async function load() {
   const boardEl = document.getElementById('board');
   const rowsEl = document.getElementById('rows');
   try {
-    const res = await fetch('https://perusqc-production.up.railway.app/api/leaderboard');
+    const [res, lpRes] = await Promise.all([
+      fetch('https://perusqc-production.up.railway.app/api/leaderboard'),
+      fetch('https://perusqc-production.up.railway.app/api/lp-stats').catch(() => null),
+    ]);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Error desconocido');
+
+    // Los promedios de LP y el conteo de Aegis son "extra": si ese endpoint
+    // falla no debe tumbar toda la tabla, simplemente se muestran vacíos.
+    let lpStats = {};
+    if (lpRes && lpRes.ok) {
+      try { lpStats = (await lpRes.json()).stats || {}; } catch { /* se ignora, queda vacío */ }
+    }
 
     statusMsg.style.display = 'none';
     boardEl.style.display = '';
@@ -429,12 +474,25 @@ async function load() {
               <div class="player-cell__text"><div class="player-name">${p.displayName}</div></div>
             </div>
           </td>
-          <td class="error-cell" data-label="Estado" colspan="3">No se pudo cargar: ${p.error}</td>
+          <td class="error-cell" data-label="Estado" colspan="5">No se pudo cargar: ${p.error}</td>
           <td class="col-stats" data-label="Stats"><a class="opgg-btn" href="${p.opgg}" target="_blank" rel="noopener">OP.GG →</a></td>
         `;
         rowsEl.appendChild(tr);
         return;
       }
+
+      const lp = lpStats[p.displayName] || {};
+      const lpCellHtml = (lp.avgGain != null || lp.avgLoss != null)
+        ? `<div class="lp-avg-cell">
+             <span class="lp-avg-gain">${lp.avgGain != null ? '+' + lp.avgGain : '—'}</span>
+             <span class="lp-avg-sep">/</span>
+             <span class="lp-avg-loss">${lp.avgLoss != null ? '-' + lp.avgLoss : '—'}</span>
+           </div>`
+        : `<span class="lp-avg-empty">—</span>`;
+      const aegisCount = lp.aegisCount || 0;
+      const aegisCellHtml = aegisCount > 0
+        ? `<span class="aegis-badge" title="${aegisCount} victoria(s) con doble LP">🛡️ ${aegisCount}</span>`
+        : `<span class="aegis-badge aegis-badge--zero">0</span>`;
 
       const emblem = emblemUrl(p.tier);
       const isWinning = p.winrate !== null && p.winrate >= 50;
@@ -473,6 +531,8 @@ async function load() {
             ${wrBar}
           </div>
         </td>
+        <td class="col-lp" data-label="Prom. LP">${lpCellHtml}</td>
+        <td class="col-aegis" data-label="Aegis">${aegisCellHtml}</td>
         <td class="col-stats" data-label="Stats">
           <a class="opgg-btn" href="${p.opgg}" target="_blank" rel="noopener">OP.GG →</a>
         </td>

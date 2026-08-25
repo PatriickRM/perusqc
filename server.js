@@ -69,7 +69,7 @@ const ACCOUNTS = [
     gameName: 'Satenekig',
     tagLine: 'LAN',
     role: 'ADC',
-    avatar: 'https://i.blogs.es/5eeb4a/burns/840_560.jpeg'
+    avatar: 'https://i.pinimg.com/1200x/9e/af/51/9eaf51fa4495cdd616e618ec47c357b5.jpg'
   },
   {
     displayName: 'Junior',
@@ -196,6 +196,7 @@ async function loadPlayer(account) {
 
 async function buildLeaderboard() {
   const results = await Promise.all(ACCOUNTS.map(loadPlayer));
+  results.forEach(recordLpSnapshot); // guarda LP/tier/rank de este momento para poder medir ganancias/pérdidas después
   results.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   return results;
 }
@@ -424,6 +425,157 @@ app.get('/api/matches', async (_req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// ---------- Tracking de LP: promedios de ganancia/pérdida + Aegis of Valor ----------
+// La Riot API no expone un flag de "esta partida tuvo Aegis" (doble LP por
+// autofill + victoria, ver patch 26.15). Así que lo inferimos: cada vez que
+// se arma el leaderboard guardamos un snapshot {leaguePoints, tier, rank} por
+// cuenta, y cuando aparece una partida ranked nueva en el historial,
+// comparamos el snapshot de justo antes vs el de justo después. Si el tier/
+// rank no cambiaron entremedio (o sea, no hubo promoción/descenso que
+// resetee el contador de LP), la diferencia es la ganancia/pérdida real de
+// esa partida. Si en una victoria esa ganancia es bastante más alta que el
+// promedio reciente de la cuenta, la marcamos como Aegis.
+const LP_LOG_FILE = path.join(DATA_DIR, 'lp-log.json');
+const LP_STATS_FILE = path.join(DATA_DIR, 'lp-stats.json');
+const LP_LOG_MAX_PER_PLAYER = 300; // suficiente para cubrir varios días de refrescos cada ~80s
+const LP_STATS_SAMPLE_SIZE = 15; // cuántas ganancias/pérdidas "normales" recientes se usan para el promedio
+const AEGIS_THRESHOLD_MULT = 1.6; // ganancia >= 1.6x el promedio propio => se cuenta como Aegis
+const AEGIS_FALLBACK_BASELINE = 18; // baseline por defecto mientras no hay suficiente historial propio
+const RANKED_SOLO_QUEUE_ID = 420;
+const LP_MATCH_GIVEUP_MS = 30 * 60 * 1000; // si en 30 min no aparece el snapshot "después", se descarta esa partida
+
+function loadJsonFile(file, fallback) {
+  try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
+  catch { return fallback; }
+}
+function saveJsonFile(file, data) {
+  try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); }
+  catch (err) { console.error(`No se pudo guardar ${file}:`, err.message); }
+}
+
+// lpLog: { [puuid]: [{ at, leaguePoints, tier, rank }, ...] } ordenado por tiempo ascendente
+let lpLog = loadJsonFile(LP_LOG_FILE, {});
+// lpStats: { [displayName]: { gains:[...], losses:[...], aegisCount, seenMatchIds:[...] } }
+let lpStats = loadJsonFile(LP_STATS_FILE, {});
+
+function emptyLpStatsEntry() {
+  return { gains: [], losses: [], aegisCount: 0, seenMatchIds: [] };
+}
+
+function recordLpSnapshot(player) {
+  if (!player.puuid || player.error) return; // cuenta rota o sin ranked: nada que trackear
+  const list = lpLog[player.puuid] || (lpLog[player.puuid] = []);
+  list.push({ at: Date.now(), leaguePoints: player.leaguePoints, tier: player.tier, rank: player.rank });
+  if (list.length > LP_LOG_MAX_PER_PLAYER) list.splice(0, list.length - LP_LOG_MAX_PER_PLAYER);
+  saveJsonFile(LP_LOG_FILE, lpLog);
+}
+
+// Busca el snapshot vigente justo antes de `ts` y el primero disponible
+// justo después de `ts` para ese puuid.
+function findSurroundingSnapshots(puuid, ts) {
+  const list = lpLog[puuid] || [];
+  let before = null, after = null;
+  for (const snap of list) {
+    if (snap.at <= ts) before = snap; // se va quedando con el último <= ts
+    else if (!after) after = snap; // el primero > ts
+  }
+  return { before, after };
+}
+
+// Recorre las partidas ranked nuevas de un jugador y actualiza sus stats de
+// LP (gains/losses/aegisCount). Se llama con las mismas `matches` que ya
+// trae /api/matches (win, matchId, queueId, gameCreation, gameDurationSeconds).
+function processLpStats(displayName, matches) {
+  const entry = lpStats[displayName] || (lpStats[displayName] = emptyLpStatsEntry());
+  let changed = false;
+
+  for (const m of matches) {
+    if (m.queueId !== RANKED_SOLO_QUEUE_ID) continue; // Aegis solo aplica a ranked solo/duo
+    if (entry.seenMatchIds.includes(m.matchId)) continue;
+
+    const gameEndMs = m.gameCreation + m.gameDurationSeconds * 1000;
+    // Necesitamos el puuid para buscar snapshots; lo resolvemos desde ACCOUNTS vía displayName más abajo (ver processAllLpStats)
+    const puuid = entry._puuid;
+    const { before, after } = findSurroundingSnapshots(puuid, gameEndMs);
+    const beforeGame = before && before.at <= m.gameCreation ? before : null;
+
+    if (beforeGame && after && beforeGame.tier === after.tier && beforeGame.rank === after.rank) {
+      const delta = after.leaguePoints - beforeGame.leaguePoints;
+      if (m.win) {
+        const baseline = entry.gains.length ? entry.gains.reduce((a, b) => a + b, 0) / entry.gains.length : AEGIS_FALLBACK_BASELINE;
+        if (delta > 0 && delta >= baseline * AEGIS_THRESHOLD_MULT) {
+          entry.aegisCount += 1;
+        } else if (delta > 0) {
+          entry.gains.push(delta);
+          if (entry.gains.length > LP_STATS_SAMPLE_SIZE) entry.gains.shift();
+        }
+      } else if (delta < 0) {
+        entry.losses.push(Math.abs(delta));
+        if (entry.losses.length > LP_STATS_SAMPLE_SIZE) entry.losses.shift();
+      }
+      entry.seenMatchIds.push(m.matchId);
+      changed = true;
+    } else if (Date.now() - gameEndMs > LP_MATCH_GIVEUP_MS) {
+      // Nunca va a aparecer un snapshot limpio para esta partida (o hubo
+      // promo/descenso entremedio); la descartamos para no reintentar por siempre.
+      entry.seenMatchIds.push(m.matchId);
+      changed = true;
+    }
+    // si no, se deja sin marcar: se reintenta la próxima vez que se llame esta función
+  }
+
+  if (entry.seenMatchIds.length > 500) entry.seenMatchIds.splice(0, entry.seenMatchIds.length - 500);
+  return changed;
+}
+
+function avg(arr) {
+  if (!arr.length) return null;
+  return Math.round(arr.reduce((a, b) => a + b, 0) / arr.length);
+}
+
+function lpStatsSummary(displayName) {
+  const entry = lpStats[displayName];
+  if (!entry) return { avgGain: null, avgLoss: null, aegisCount: 0 };
+  return { avgGain: avg(entry.gains), avgLoss: avg(entry.losses), aegisCount: entry.aegisCount };
+}
+
+// Se llama después de armar /api/matches (que ya tiene puuid + matches por
+// jugador), así que reutiliza esa data sin pegarle de nuevo a la Riot API.
+function processAllLpStats(matchHistoryPlayers, leaderboard) {
+  let changed = false;
+  for (const mp of matchHistoryPlayers) {
+    const player = leaderboard.find(p => p.displayName === mp.displayName);
+    if (!player || !player.puuid) continue;
+    const entry = lpStats[mp.displayName] || (lpStats[mp.displayName] = emptyLpStatsEntry());
+    entry._puuid = player.puuid; // no se persiste como stat en sí, solo se usa en memoria para el lookup de snapshots
+    if (processLpStats(mp.displayName, mp.matches)) changed = true;
+  }
+  if (changed) saveJsonFile(LP_STATS_FILE, lpStats);
+}
+
+app.get('/api/lp-stats', async (_req, res) => {
+  try {
+    const { data: leaderboard } = await getLeaderboard();
+    const { players } = await (async () => {
+      const now = Date.now();
+      if (matchHistoryCache.data && now - matchHistoryCache.at < MATCH_CACHE_TTL_MS) {
+        return { players: matchHistoryCache.data };
+      }
+      const players = await buildMatchHistory();
+      matchHistoryCache = { at: now, data: players };
+      return { players };
+    })();
+
+    processAllLpStats(players, leaderboard);
+
+    const stats = {};
+    ACCOUNTS.forEach(a => { stats[a.displayName] = lpStatsSummary(a.displayName); });
+    res.json({ stats });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---------- Contador de Blue Shell ----------
 // Guarda cuántas veces le tocó cada castigo a cada jugador. Se persiste en un
 // archivo JSON junto al server para que sobreviva a reinicios del proceso.
