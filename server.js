@@ -878,10 +878,14 @@ app.get('/api/blueshell/pending', (_req, res) => {
 });
 
 app.post('/api/blueshell/throw', requireAuth, (req, res) => {
-  const { to, prizeKey, prizeLabel } = req.body || {};
+  const { to, prizeKey, prizeLabel, reversed, reversedFrom } = req.body || {};
   const target = ACCOUNTS.find(a => a.displayName === to);
   if (!target) return res.status(400).json({ error: 'Rival inválido' });
-  if (target.displayName === req.displayName) {
+  // Si tocó "Reverse" en la ruleta, el castigo se le da la vuelta al que
+  // tiró la blue shell, así que en ese caso sí se permite que "to" sea
+  // el mismo que tira (req.displayName). Fuera de ese caso, se mantiene
+  // la regla de no poder tirarse una a uno mismo.
+  if (target.displayName === req.displayName && !reversed) {
     return res.status(400).json({ error: 'No te podés tirar una blue shell a vos mismo' });
   }
 
@@ -899,6 +903,7 @@ app.post('/api/blueshell/throw', requireAuth, (req, res) => {
     prizeKey: prizeKey || null,
     prizeLabel: prizeLabel || null,
     champion: null,
+    reversedFrom: reversed ? (reversedFrom || null) : null,
     createdAt: Date.now(),
   };
   pendingBlueshells.push(entry);
