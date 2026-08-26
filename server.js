@@ -120,9 +120,19 @@ function opggUrl(gameName, tagLine) {
   return `https://op.gg/es/lol/summoners/lan/${encodeURIComponent(gameName)}-${encodeURIComponent(tagLine)}`;
 }
 
-async function riotFetch(url) {
+async function riotFetch(url, attempt = 1) {
   const res = await fetch(url, { headers: { 'X-Riot-Token': RIOT_API_KEY } });
   if (res.status === 404) return null; // ej: sin partida en vivo, sin partidas ranked
+  if (res.status === 429 && attempt <= 3) {
+    // Rate limit: antes esto tiraba error y la cuenta se quedaba sin
+    // snapshot ese ciclo (silencioso), rompiendo el tracking de LP para esa
+    // cuenta justo en ese momento. Ahora se reintenta respetando Retry-After
+    // (o un backoff corto si Riot no lo manda) antes de rendirse de verdad.
+    const retryAfterHeader = res.headers.get('retry-after');
+    const waitMs = retryAfterHeader ? Number(retryAfterHeader) * 1000 : attempt * 800;
+    await sleep(Math.max(waitMs, 300));
+    return riotFetch(url, attempt + 1);
+  }
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Riot API ${res.status} en ${url}: ${text}`);
@@ -196,7 +206,14 @@ async function loadPlayer(account) {
 }
 
 async function buildLeaderboard() {
-  const results = await Promise.all(ACCOUNTS.map(loadPlayer));
+  // Antes las 7 cuentas arrancaban exactamente al mismo instante, lo que
+  // manda 7 llamadas de golpe a cada uno de los 3 endpoints (account,
+  // summoner, league) casi en simultáneo — fácil de pasarse del límite de
+  // ráfaga por segundo de la API key. Con este escalonado de 150ms entre
+  // cuenta y cuenta, siguen resolviéndose en paralelo pero más repartidas.
+  const results = await Promise.all(
+    ACCOUNTS.map((account, i) => sleep(i * 150).then(() => loadPlayer(account)))
+  );
   results.forEach(recordLpSnapshot); // guarda LP/tier/rank de este momento para poder medir ganancias/pérdidas después
   results.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
   return results;
