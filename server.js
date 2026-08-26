@@ -642,6 +642,21 @@ app.post('/api/aegis/adjust', requireAuth, (req, res) => {
   res.json({ ok: true, displayName: req.displayName, aegisCount: entry.aegisCount });
 });
 
+// Reset de una sola vez: durante el desarrollo del tracker de LP hubo un par
+// de bugs (ver historial de cambios) que hicieron que varias partidas quedaran
+// marcadas como "ya vistas, no reintentar" (seenMatchIds) sin haberse podido
+// medir de verdad. Ese registro queda guardado para siempre y bloquea que se
+// vuelvan a intentar aunque el código ya esté arreglado. Este endpoint borra
+// todo lo acumulado (gains, losses, aegisCount, seenMatchIds de TODAS las
+// cuentas) para arrancar de cero una vez que el sistema ya funciona bien.
+// Después de usarlo, no hace falta llamarlo de nuevo — es solo para
+// descontaminar los datos viejos.
+app.post('/api/lp-stats/reset', requireAuth, (_req, res) => {
+  lpStats = {};
+  saveJsonFile(LP_STATS_FILE, lpStats);
+  res.json({ ok: true, message: 'lp-stats reseteado, arranca de cero' });
+});
+
 // ---------- Contador de Blue Shell ----------
 // Guarda cuántas veces le tocó cada castigo a cada jugador. Se persiste en un
 // archivo JSON junto al server para que sobreviva a reinicios del proceso.
