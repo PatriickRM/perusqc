@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Premios — SPQC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0708;
+    --bg-raised: #14100f;
+    --bg-card: #181112;
+    --bg-card-hover: #201517;
+    --bg-plate: #100b0c;
+    --border: #2e1c1e;
+    --border-soft: #221517;
+    --accent: #FF3B4E;
+    --accent-2: #ff7a45;
+    --accent-dim: rgba(255, 59, 78, 0.14);
+    --gold: #F2C14E;
+    --gold-dim: rgba(242, 193, 78, 0.14);
+    --text: #f6efee;
+    --text-dim: #a2898a;
+    --text-faint: #5e4749;
+
+    --display: 'Bebas Neue', 'Arial Narrow', sans-serif;
+    --body: 'Inter', system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: inherit; }
+
+  body {
+    margin: 0;
+    font-family: var(--body);
+    background:
+      radial-gradient(circle at 50% -10%, #1f0f10 0%, var(--bg) 42%),
+      var(--bg);
+    color: var(--text);
+    min-height: 100%;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+  ::selection { background: var(--accent); color: #0a0708; }
+
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+
+  /* ---------- NAV ---------- */
+  .topnav {
+    border-bottom: 1px solid var(--border-soft);
+    background: rgba(10, 7, 8, 0.85);
+    backdrop-filter: blur(6px);
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 10;
+  }
+  .topnav__inner {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .topnav__brand {
+    font-family: var(--display);
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-decoration: none;
+    text-shadow: 0 0 18px rgba(255, 59, 78, 0.35);
+  }
+  .topnav__links { display: flex; gap: 22px; margin-left: auto; flex-wrap: wrap; }
+  .topnav__links a {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    text-decoration: none;
+    padding-bottom: 3px;
+    border-bottom: 2px solid transparent;
+  }
+  .topnav__links a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ---------- TITLE ---------- */
+  .rules-title { text-align: center; margin-bottom: 28px; }
+  .rules-title__eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 3px;
+    color: var(--text-dim);
+  }
+  .rules-title__main {
+    font-family: var(--display);
+    font-size: clamp(2.6rem, 10vw, 3.6rem);
+    letter-spacing: 3px;
+    color: var(--gold);
+    line-height: 1;
+    margin: 6px 0 2px;
+    text-shadow: 0 0 34px rgba(242, 193, 78, 0.3);
+  }
+  .rules-title__sub {
+    font-family: var(--display);
+    font-size: clamp(1.1rem, 4vw, 1.5rem);
+    letter-spacing: 2px;
+    color: var(--text-dim);
+  }
+
+  section.block { padding: 40px 0 60px; }
+
+  /* ---------- WINNER CARDS ---------- */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 22px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+  .card--top1 {
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold-dim), 0 24px 48px -28px rgba(242, 193, 78, 0.45);
+    background: linear-gradient(135deg, rgba(242,193,78,0.06), var(--bg-card) 55%);
+  }
+
+  .rank-number {
+    font-family: var(--display);
+    font-size: 2.4rem;
+    letter-spacing: 1px;
+    color: var(--accent);
+    min-width: 52px;
+    text-align: center;
+    flex-shrink: 0;
+    line-height: 1;
+    padding-top: 2px;
+  }
+  .card--top1 .rank-number {
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(242, 193, 78, 0.4);
+  }
+
+  .info { flex: 1; min-width: 0; }
+  .name-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .name { font-weight: 800; font-size: 1.2rem; }
+  .card--top1 .name { color: var(--gold); }
+  .place-tag {
+    font-family: var(--mono);
+    font-size: 0.66rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .prize-title {
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .card--top1 .prize-title { color: var(--gold); }
+
+  .prize-desc {
+    margin-top: 6px;
+    font-size: 0.94rem;
+    line-height: 1.55;
+    color: var(--text);
+  }
+
+  @media (max-width: 560px) {
+    .card { gap: 14px; padding: 18px; }
+    .rank-number { font-size: 1.9rem; min-width: 40px; }
+  }
+
+  footer {
+    text-align: center;
+    color: var(--text-faint);
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    padding: 28px 20px 40px;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="topnav__inner">
+    <a class="topnav__brand" href="#">SPQC</a>
+    <div class="topnav__links">
+      <a href="#">Tabla</a>
+      <a href="#">En vivo</a>
+      <a href="#">Blue Shell</a>
+      <a href="#">Historial</a>
+      <a href="#">Reglas</a>
+      <a href="#" class="active">Premios</a>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap" style="padding-top: 48px;">
+  <header class="rules-title">
+    <div class="rules-title__eyebrow">RESULTADOS FINALES</div>
+    <div class="rules-title__main">PREMIOS</div>
+    <div class="rules-title__sub">SoloPeruQChallenge · 2026</div>
+  </header>
+
+  <section class="block" style="padding-top: 8px;">
+    <div class="eyebrow" style="font-family:var(--mono);font-size:0.72rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--text-dim);display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <span style="width:18px;height:2px;background:var(--accent);display:inline-block;"></span> Podio final
+    </div>
+
+    <div class="card card--top1">
+      <div class="rank-number">1</div>
+      <div class="info">
+        <div class="name-row">
+          <span class="name">Orlaman</span>
+          <span class="place-tag">Primer lugar</span>
+        </div>
+        <div class="prize-title">Premio absoluto</div>
+        <p class="prize-desc">Alitas y hamburguesa toda la semana, con Coca-Cola, para subir a GM.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="rank-number">2</div>
+      <div class="info">
+        <div class="name-row">
+          <span class="name">Defcon</span>
+          <span class="place-tag">Segundo lugar</span>
+        </div>
+        <div class="prize-title">Skin legendaria + caja aleatoria</div>
+        <p class="prize-desc">1 skin legendaria a elección (o pase), más una cajita aleatoria de skin.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="rank-number">3</div>
+      <div class="info">
+        <div class="name-row">
+          <span class="name">Karalej</span>
+          <span class="place-tag">Tercer lugar</span>
+        </div>
+        <div class="prize-title">Skin épica</div>
+        <p class="prize-desc">1 skin épica a elección.</p>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>SoloPeruQChallenge · 21 AGO 2026 → 21 SET 2026 · Premios entregados</footer>
+
+</body>
+</html>
